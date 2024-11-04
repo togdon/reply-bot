@@ -16,20 +16,14 @@ import (
 	"golang.org/x/net/html"
 )
 
-var config map[string]string
-
 func main() {
-
-	envs, error := GetConfig()
-
-	if error != nil {
-		log.Fatalf("Error loading .env or ENV: %v", error)
+	envs, err := GetConfig()
+	if err != nil {
+		log.Fatalf("Error loading .env or ENV: %v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, os.Interrupt)
 
 	client := mastodon.NewClient(&mastodon.Config{
 		Server:       envs["MASTODON_SERVER"],
@@ -42,28 +36,39 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, os.Interrupt)
+
 	go func() {
 		<-sc
 		cancel()
 	}()
 
-	for e := range events {
-		switch event := e.(type) {
-		case *mastodon.UpdateEvent:
-			if parseContent(event.Status.Content) {
-				fmt.Printf("%v\n%v\n\n", event.Status.URI, event.Status.Content)
+	for {
+		select {
+		case event := <-events:
+			switch e := event.(type) {
+			case *mastodon.UpdateEvent:
+				if parseContent(e.Status.Content) {
+					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
+				}
+			case *mastodon.UpdateEditEvent:
+				if parseContent(e.Status.Content) {
+					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
+				}
+			default:
+				// How should we handle this?
 			}
-		case *mastodon.UpdateEditEvent:
-			if parseContent(event.Status.Content) {
-				fmt.Printf("%v\n%v\n\n", event.Status.URI, event.Status.Content)
-			}
+		case <-ctx.Done():
+			fmt.Println("Shutting down...")
+			return
 		}
 	}
 }
 
 // parses the content of a post and returns true if it contains a match for NYT Urls or Games shares
 func parseContent(content string) bool {
-
 	if content != "" {
 		// first, check for NYT URLs
 		if parseURLs(findURLs(content)) {
@@ -77,8 +82,8 @@ func parseContent(content string) bool {
 			// fmt.Printf("Found NYT Games share: %v\n", content)
 			return true
 		}
-
 	}
+
 	return false
 }
 
@@ -90,14 +95,18 @@ func findURLs(s string) string {
 	if err != nil {
 		return s
 	}
-	var buf bytes.Buffer
 
-	var extractURL func(node *html.Node, w *bytes.Buffer)
+	var (
+		buf        bytes.Buffer
+		extractURL func(node *html.Node, w *bytes.Buffer)
+	)
+
 	extractURL = func(node *html.Node, w *bytes.Buffer) {
 		if node.Type == html.ElementNode && node.Data == "a" {
-
-			url := ""
-			class := ""
+			var (
+				url   string
+				class string
+			)
 
 			for _, a := range node.Attr {
 				if a.Key == "href" {
@@ -129,27 +138,22 @@ func findURLs(s string) string {
 func parseURLs(urls string) bool {
 	if urls != "" {
 		for _, u := range strings.Split(strings.TrimSuffix(urls, "\n"), "\n") {
-
 			// A loop to unfurl the most common URL shorteners; several of these
 			// (e.g., xyz -> trib.al -> real url) are used more than once, or have
 			// both an http and https link, we loop until they're unfurled
-			unfurlre := regexp.MustCompile(`(?i)(aje\.io|amzn\.to|api\.follow\.it|bbc\.in|bit\.ly|buff\.ly|cnet\.co|cnn\.it|d\.pr|dlvr\.it|engt\.co|flic\.kr|goo\.gl|ift\.tt|is\.gd|j\.mp|lat\.ms|nbcnews\.to|npi\.li|nyer\.cm|nyti\.ms|on\.ft\.com|on\.msnbc\.com|on\.natgeo\.com|on\.soundcloud\.com|on\.substack\.co|on\.wsj\.com|ow\.ly|pst\.cr|\/redd\.it|reut\.rs|shar\.es|spoti\.fi|st\.news|t\.co|t\.ly|tcrn\.ch|\/ti\.me|tiny\.cc|tinyurl\.com|trib\.al|w\.wiki|wapo\.st|youtu\.be)/`)
-			loops := 0
-			for unfurlre.MatchString(u) {
+			unfurlRE := regexp.MustCompile(`(?i)(aje\.io|amzn\.to|api\.follow\.it|bbc\.in|bit\.ly|buff\.ly|cnet\.co|cnn\.it|d\.pr|dlvr\.it|engt\.co|flic\.kr|goo\.gl|ift\.tt|is\.gd|j\.mp|lat\.ms|nbcnews\.to|npi\.li|nyer\.cm|nyti\.ms|on\.ft\.com|on\.msnbc\.com|on\.natgeo\.com|on\.soundcloud\.com|on\.substack\.co|on\.wsj\.com|ow\.ly|pst\.cr|\/redd\.it|reut\.rs|shar\.es|spoti\.fi|st\.news|t\.co|t\.ly|tcrn\.ch|\/ti\.me|tiny\.cc|tinyurl\.com|trib\.al|w\.wiki|wapo\.st|youtu\.be)/`)
+
+			for i := 0; unfurlRE.MatchString(u) && i < 4; i++ {
 				u = unfurlURL(u)
-				loops++
-				if loops > 3 {
-					// Assume that we're stuck in an inescapable loop, break
-					break
-				}
 			}
 
-			newsre := regexp.MustCompile(`(?i)nytimes\.com`)
-			if newsre.MatchString(u) {
+			newsRE := regexp.MustCompile(`(?i)nytimes\.com`)
+			if newsRE.MatchString(u) {
 				return true
 			}
 		}
 	}
+
 	return false
 }
 
@@ -169,5 +173,6 @@ func unfurlURL(s string) string {
 			return ""
 		}
 	}
+
 	return res.Request.URL.String()
 }

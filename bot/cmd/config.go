@@ -7,7 +7,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func readConfigFromENV() map[string]string {
+func readConfigFromEnv() map[string]string {
 	var envs = make(map[string]string)
 
 	envs["MASTODON_SERVER"] = os.Getenv("MASTODON_SERVER")
@@ -20,15 +20,19 @@ func readConfigFromENV() map[string]string {
 }
 
 func GetConfig() (map[string]string, error) {
+	var (
+		err  error
+		envs map[string]string
+	)
+
+	envs = readConfigFromEnv()
 
 	if os.Getenv("APP_ENV") != "production" {
-		envs, error := godotenv.Read(".env")
-		if error != nil {
-			fmt.Println("Error loading .env file")
+		envs, err = godotenv.Read(".env")
+		if err != nil {
+			return nil, fmt.Errorf("Error loading .env file: %w")
 		}
-		return envs, error
-	} else {
-		envs := readConfigFromENV()
-		return envs, nil
 	}
+
+	return envs, nil
 }
