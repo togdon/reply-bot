@@ -1,23 +1,8 @@
-package main
+package mastodon
 
-import (
-	"testing"
-)
+import "testing"
 
-func Test_main(t *testing.T) {
-	tests := []struct {
-		name string
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			main()
-		})
-	}
-}
-
-func Test_findURLs(t *testing.T) {
+func TestFindURLs(t *testing.T) {
 	type args struct {
 		s string
 	}
@@ -28,6 +13,7 @@ func Test_findURLs(t *testing.T) {
 	}{
 		// TODO: Add test cases.
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := findURLs(tt.args.s); got != tt.want {
@@ -37,7 +23,7 @@ func Test_findURLs(t *testing.T) {
 	}
 }
 
-func Test_parseURLs(t *testing.T) {
+func TestParseURLs(t *testing.T) {
 	type args struct {
 		urls string
 	}
@@ -47,6 +33,7 @@ func Test_parseURLs(t *testing.T) {
 	}{
 		// TODO: Add test cases.
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			parseURLs(tt.args.urls)
@@ -54,7 +41,7 @@ func Test_parseURLs(t *testing.T) {
 	}
 }
 
-// func Test_removeTrackers(t *testing.T) {
+// func TestRemoveTrackers(t *testing.T) {
 // 	type args struct {
 // 		u *url.URL
 // 	}
@@ -66,6 +53,7 @@ func Test_parseURLs(t *testing.T) {
 // 		{"remove utm_{source,medium,name,term,content}", args{&url.URL{RawQuery: "utm_source=share&utm_medium=android_app&utm_name=androidcss&utm_term=1&utm_content=share_button"}}, url.Values{}},
 // 		{"keep foo", args{&url.URL{RawQuery: "foo=bar"}}, url.Values{"foo": {"bar"}}},
 // 	}
+//
 // 	for _, tt := range tests {
 // 		t.Run(tt.name, func(t *testing.T) {
 // 			if got := removeTrackers(tt.args.u); !reflect.DeepEqual(got, tt.want) {
@@ -75,7 +63,7 @@ func Test_parseURLs(t *testing.T) {
 // 	}
 // }
 
-func Test_unfurlURL(t *testing.T) {
+func TestUnfurlURL(t *testing.T) {
 	type args struct {
 		s string
 	}
@@ -92,6 +80,7 @@ func Test_unfurlURL(t *testing.T) {
 		// {"unfurl https://redd.it", args{"https://redd.it/12hs83k"}, "https://www.reddit.com/comments/12hs83k?rdt=41413"},
 		{"DON'T unfurl https://i.redd.it", args{"https://i.redd.it/kzptzlwlrmu71.jpg"}, "https://i.redd.it/kzptzlwlrmu71.jpg"},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := unfurlURL(tt.args.s); got != tt.want {

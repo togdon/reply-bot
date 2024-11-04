@@ -5,16 +5,17 @@ import (
 	"testing"
 )
 
-func Test_readConfigFromENV(t *testing.T) {
+func TestReadConfigFromEnv(t *testing.T) {
 	tests := []struct {
 		name string
 		want map[string]string
 	}{
 		// TODO: Add test cases.
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := readConfigFromENV(); !reflect.DeepEqual(got, tt.want) {
+			if got := readConfigFromEnv(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("readConfigFromENV() = %v, want %v", got, tt.want)
 			}
 		})
@@ -29,6 +30,7 @@ func TestGetConfig(t *testing.T) {
 	}{
 		// TODO: Add test cases.
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := GetConfig()
