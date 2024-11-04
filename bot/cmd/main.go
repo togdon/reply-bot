@@ -10,6 +10,12 @@ import (
 	"github.com/togdon/reply-bot/bot/pkg/mastodon"
 )
 
+const (
+	SHEET_ID   = "1wD8zsIcn9vUPmL749MFAreXx8cfaYeqRfFoGuSnJ2Lk"
+	SHEET_NAME = "replies"
+	CREDS_FILE = "credentials.json"
+)
+
 func main() {
 	envs, err := GetConfig()
 	if err != nil {
