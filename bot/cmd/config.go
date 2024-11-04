@@ -30,7 +30,7 @@ func GetConfig() (map[string]string, error) {
 	if os.Getenv("APP_ENV") != "production" {
 		envs, err = godotenv.Read(".env")
 		if err != nil {
-			return nil, fmt.Errorf("Error loading .env file: %w")
+			return nil, fmt.Errorf("Error loading .env file: %w", err)
 		}
 	}
 
