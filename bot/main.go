@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"regexp"
@@ -51,15 +50,41 @@ func main() {
 	for e := range events {
 		switch event := e.(type) {
 		case *mastodon.UpdateEvent:
-			// fmt.Printf("%v: %v\n", event.Status.ID, event.Status.Content)
-			parseURLs(findURLs(event.Status.Content))
+			if parseContent(event.Status.Content) {
+				fmt.Printf("%v\n%v\n\n", event.Status.URI, event.Status.Content)
+			}
 		case *mastodon.UpdateEditEvent:
-			// fmt.Printf("%v: %v\n", event.Status.ID, event.Status.Account.ID)
-			parseURLs(findURLs(event.Status.Content))
+			if parseContent(event.Status.Content) {
+				fmt.Printf("%v\n%v\n\n", event.Status.URI, event.Status.Content)
+			}
 		}
 	}
 }
 
+// parses the content of a post and returns true if it contains a match for NYT Urls or Games shares
+func parseContent(content string) bool {
+
+	if content != "" {
+		// first, check for NYT URLs
+		if parseURLs(findURLs(content)) {
+			// fmt.Printf("Found NYT URL: %v\n", content)
+			return true
+		}
+
+		// next, check for NYT Games shares
+		contentregex := regexp.MustCompile(`(Wordle\s[1-9],[0-9]{3}\s[X,1-6]\/[1-6])|(Connections\nPuzzle\s\#[1-6]{3}\n[🟨|🟩|🟦|🟪]*\n)|(Strands\s\#[1-9]{3}\n.*\n[🟡,🔵]*)|(I\ssolved\sthe\s[0-9]{2}\/[0-9]{2}\/[0-9]{4}\sNew\sYork\sTimes(\sMini)?\sCrossword\sin\s)`)
+		if contentregex.MatchString(content) {
+			// fmt.Printf("Found NYT Games share: %v\n", content)
+			return true
+		}
+
+	}
+	return false
+}
+
+// findURLs takes a string of event.Status.Content and returns a string of URLs
+// found within the content making sure to exclude any URLs that are associated
+// with @mentions or #hashtags
 func findURLs(s string) string {
 	doc, err := html.Parse(strings.NewReader(s))
 	if err != nil {
@@ -101,7 +126,7 @@ func findURLs(s string) string {
 	return buf.String()
 }
 
-func parseURLs(urls string) {
+func parseURLs(urls string) bool {
 	if urls != "" {
 		for _, u := range strings.Split(strings.TrimSuffix(urls, "\n"), "\n") {
 
@@ -119,66 +144,16 @@ func parseURLs(urls string) {
 				}
 			}
 
-			newsre := regexp.MustCompile(`(?i)aljazeera\.com|apnews\.com|arstechnica\.com|axios\.com|bbc\.co\.uk|bbc\.com|bloomberg\.com|cbc\.ca|cnn\.com|economist\.com|gizmodo\.com|huffpost\.com|ign\.com|kotaku\.com|latimes\.com|(c|ms)?nbc(news)?\.com|npr\.org|nytimes\.com|politico\.com|rawstory\.com|reuters\.com|techcrunch\.com|telegraph\.co\.uk|theathletic\.com|theguardian\.com|thehill\.com|theverge\.com|washingtonpost\.com|wired\.com|wsj\.com`)
+			newsre := regexp.MustCompile(`(?i)nytimes\.com`)
 			if newsre.MatchString(u) {
-				up, _ := url.Parse(u)
-				queries := removeTrackers(up)
-
-				if len(queries) == 0 {
-					// URLs without query strings
-
-					if up.Scheme != "" && up.Host != "" {
-						// only output if there's a valid(ish) URL
-
-						// For whatever reason there's a bunch of URLs that are just
-						// https://www.bbc.co.uk/news. This skips printing them, since
-						// they're just the front page; note that even with the Trackers
-						// they're still just links to the front page
-						//
-						// discu.eu seems to wrap a bunch of upstream news sites, don't
-						// print those either since they're always repeated
-						if (up.Host != "www.bbc.co.uk" && up.Path != "/news") &&
-							(up.Host != "discu.eu") {
-							fmt.Printf("%v://%v%v\n", up.Scheme, up.Host, up.Path)
-						}
-					}
-				} else {
-					// URLs with query strings
-
-					// Bloomberg seems to have an Anti-DDoS / Subscription paywall that
-					// comes up a lot, don't print those
-					if up.Host == "www.bloomberg.com" && up.Path == "/tosv2.html" {
-						// Do nothing
-					} else if up.Host == "arstechnica.com" {
-						// ars has a lot of URLs that get posted that look like https://arstechnica.com/?p=1964606
-						// but map to https://arstechnica.com/gadgets/2023/09/new-apple-watch-series-9-improves-siri-processing-iphone-finding-and-more/
-						ars_unfurl, _ := url.Parse(unfurlURL(u))
-						fmt.Printf("%v://%v%v\n", ars_unfurl.Scheme, ars_unfurl.Host, ars_unfurl.Path)
-					} else {
-						// there's a query string that's *maybe* useful, but probably not... we'll print it for now
-						fmt.Printf("%v://%v%v?%v\n", up.Scheme, up.Host, up.Path, queries.Encode())
-					}
-				}
+				return true
 			}
 		}
 	}
+	return false
 }
 
-func removeTrackers(u *url.URL) url.Values {
-	var queries url.Values
-
-	if u.RawQuery != "" {
-		queries, _ = url.ParseQuery(u.RawQuery)
-		for k := range queries {
-			trackerre := regexp.MustCompile(`(?i)(at|utm)_(bbc_team|brand|campaign|content|format|link_id|link_origin|link_type|medium|name|placement|ptr_name|social-type|source|term)|ab_channel|campaign|cid|cmp|feature|ftag|giftCopy|fbclid|guc|hsenc|hsmi|itid|leadsource|mbid|mkt_tok|mod|origin|partner|pwapi_token|ref|searchResultPosition|smid|smtyp|source|st|taid|tpcc|unlocked_article_code|url|xtor`)
-			if trackerre.MatchString(k) {
-				queries.Del(k)
-			}
-		}
-	}
-	return queries
-}
-
+// unfurlURL takes a URL and returns the final URL after following any redirects
 func unfurlURL(s string) string {
 	var client = &http.Client{
 		Timeout: time.Second * 10,
