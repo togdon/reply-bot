@@ -13,13 +13,19 @@ import (
 	"time"
 
 	"github.com/mattn/go-mastodon"
+	"github.com/togdon/reply-bot/gsheets"
 	"golang.org/x/net/html"
+)
+
+const (
+	SHEET_ID        = "1wD8zsIcn9vUPmL749MFAreXx8cfaYeqRfFoGuSnJ2Lk"
+	SHEET_NAME      = "replies"
+	credentialsFile = "credentials.json"
 )
 
 var config map[string]string
 
 func main() {
-
 	envs, error := GetConfig()
 
 	if error != nil {
@@ -59,6 +65,10 @@ func main() {
 			}
 		}
 	}
+
+	// Example call
+	// saveToSheet("https://nytimesguild.org/tech/?CKG", "Cooking")
+	// saveToSheet("https://nytimesguild.org/tech/?AT", "Athletic")
 }
 
 // parses the content of a post and returns true if it contains a match for NYT Urls or Games shares
@@ -170,4 +180,15 @@ func unfurlURL(s string) string {
 		}
 	}
 	return res.Request.URL.String()
+}
+
+// Appends a row with the given URL and post type to a Google Sheet.
+// If the operation fails, it logs a fatal error.
+func saveToSheet(url, postType string) {
+	err := gsheets.AppendRow(SHEET_ID, SHEET_NAME, url, postType, credentialsFile)
+	if err != nil {
+		log.Fatalf("Failed to append row: %v", err)
+	} else {
+		fmt.Println("Post successfully logged in Google Sheets.")
+	}
 }
