@@ -19,8 +19,6 @@ func main() {
 
 	search := strings.Join([]string{SEARCH_URL, search_query}, "?")
 
-	fmt.Print(search)
-
 	resp, err := http.Get(search)
 
 	if err != nil {
@@ -36,7 +34,7 @@ func main() {
 	}
 
 	type SearchResponse struct {
-		Cursor    string
+		Cursor    string //TODO pagination, no idea how it works yet
 		HitsTotal int
 		Posts     []map[string]interface{} //rest of the struct is here https://docs.bsky.app/docs/api/app-bsky-feed-search-posts#responses
 	}
@@ -47,5 +45,13 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println(search_hits.Posts)
+	fmt.Printf("found %d\n", search_hits.HitsTotal)
+
+	for _, post := range search_hits.Posts {
+		//TODO more specific logic to filter bots / low engagement posts / low follower authors?
+
+		fmt.Println(post["uri"]) //TODO not sure how to go from URI here to a browser loadable url?
+
+		//TODO write to the google sheet where responses can be generated?
+	}
 }
