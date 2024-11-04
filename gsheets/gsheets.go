@@ -10,9 +10,15 @@ import (
 )
 
 const (
-	UrlColumn      = 0
-	PostTypeColumn = 1 // News, Games, Cooking
-	ResponseColumn = 2 // Whether the post has been responded to
+	SHEET_ID        = "1wD8zsIcn9vUPmL749MFAreXx8cfaYeqRfFoGuSnJ2Lk"
+	SHEET_NAME      = "replies"
+	credentialsFile = "credentials.json"
+)
+
+const (
+	UrlColumn       = 0
+	PostTypeColumn  = 1 // Games, Cooking, etc
+	RespondedColumn = 2 // Whether the post has been responded to
 )
 
 // NewSheetsClient initializes a Google Sheets API client using the provided credentials.
@@ -49,6 +55,15 @@ func AppendRow(sheetID, sheetName, url, postType string, credentialsFile string)
 		return fmt.Errorf("unable to append data to sheet: %v", err)
 	}
 
-	log.Println("Row successfully appended.")
 	return nil
+}
+
+// Appends a row with the given URL and post type to a Google Sheet.
+func SaveToSheet(url, postType string) {
+	err := AppendRow(SHEET_ID, SHEET_NAME, url, postType, credentialsFile)
+	if err != nil {
+		log.Printf("Failed to append row: %v\n", err)
+	} else {
+		fmt.Println("Successfully saved to Google Sheets.")
+	}
 }
