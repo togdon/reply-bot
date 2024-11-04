@@ -51,28 +51,28 @@ func main() {
 		//TODO more specific logic to filter bots / low engagement posts / low follower authors?
 
 		fmt.Println("URI: ", post["uri"]) //TODO not sure how to go from URI here to a browser loadable url?
+		// approach here: https://github.com/bluesky-social/atproto/discussions/2523#discussioncomment-9552109
+		// [noah] note: rather than using the DID, we use the author handle which makes the url more concise (in most cases) and readable
 
 		uri, ok := post["uri"].(string)
 		if !ok {
 			fmt.Printf("Error for uri %d: could not cast to string", post["uri"])
 		}
 
-		// fmt.Println(post)
-		fmt.Println(post)
+		author, ok := post["author"].(map[string]interface{})
+		if !ok {
+			fmt.Printf("error casting author to string map")
+		}
+
+		handle, ok := author["handle"].(string)
+		if !ok {
+			fmt.Printf("error casting handle to string")
+		}
 
 		parts := strings.Split(uri, "/")
-		did := parts[2]
 		rkey := parts[len(parts)-1]
 
-		// approach here: https://github.com/bluesky-social/atproto/discussions/2523#discussioncomment-9552109
-		// uri: at://<DID>/<COLLECTION>/<RKEY>
-		// https://bsky.app/profile/<DID>/post/<RKEY>
-		// https://bsky.app/profile/did:plc:hpweuxc46j4uqsscqdpcwyog/post/3la5nh6vqln2u
-		// NOTE: navigating to this url directly after populating the fields yields: Error: uri must be a valid at-uri
-
-		// another approach: construct it using author handle
-
-		fmt.Printf("Associated URL: https://bsky.app/profile/%s/post/%s\n", did, rkey)
+		fmt.Printf("Associated URL: https://bsky.app/profile/%s/post/%s\n", handle, rkey)
 		// postUrl := fmt.Sprintf("https://bsky.app/profile/%s/post/%s\n", did, rkey)
 
 		//TODO write to the google sheet where responses can be generated?
