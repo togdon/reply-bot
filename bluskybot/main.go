@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,5 +31,21 @@ func main() {
 
 	body, err := io.ReadAll(resp.Body)
 
-	fmt.Println(string(body))
+	if err != nil {
+		panic(err)
+	}
+
+	type SearchResponse struct {
+		Cursor    string
+		HitsTotal int
+		Posts     []map[string]interface{} //rest of the struct is here https://docs.bsky.app/docs/api/app-bsky-feed-search-posts#responses
+	}
+
+	var search_hits SearchResponse
+
+	if err := json.Unmarshal(body, &search_hits); err != nil {
+		panic(err)
+	}
+
+	fmt.Println(search_hits.Posts)
 }
