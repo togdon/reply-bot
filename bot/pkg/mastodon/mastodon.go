@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/mattn/go-mastodon"
+	"github.com/togdon/reply-bot/bot/pkg/environment"
 	"golang.org/x/net/html"
 )
 
@@ -27,30 +28,13 @@ type config struct {
 
 type Option func(*config) error
 
-func WithServer(server string) Option {
-	return func(c *config) error {
-		c.server = server
-		return nil
-	}
-}
 
-func WithClientID(clientID string) Option {
+func WithConfig(cfg environment.Config) Option {
 	return func(c *config) error {
-		c.clientID = clientID
-		return nil
-	}
-}
-
-func WithClientSecret(clientSecret string) Option {
-	return func(c *config) error {
-		c.clientSecret = clientSecret
-		return nil
-	}
-}
-
-func WithAccessToken(accessToken string) Option {
-	return func(c *config) error {
-		c.accessToken = accessToken
+		c.accessToken = cfg.Mastodon.AccessToken
+		c.clientID = cfg.Mastodon.ClientID
+		c.clientSecret = cfg.Mastodon.ClientSecret
+		c.server = cfg.Mastodon.MastodonServer
 		return nil
 	}
 }
@@ -62,10 +46,6 @@ func NewClient(options ...Option) (*Client, error) {
 		if err := opt(&cfg); err != nil {
 			return nil, err
 		}
-	}
-
-	if cfg.server == "" || cfg.clientID == "" || cfg.clientSecret == "" || cfg.accessToken == "" {
-		return nil, fmt.Errorf("mastodon.NewClient: missing required fields")
 	}
 
 	return &Client{

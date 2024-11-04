@@ -3,7 +3,7 @@ module github.com/togdon/reply-bot
 go 1.23.1
 
 require (
-	github.com/joho/godotenv v1.5.1
+	github.com/caarlos0/env/v11 v11.2.2
 	github.com/mattn/go-mastodon v0.0.9
 	golang.org/x/net v0.30.0
 )
@@ -21,6 +21,7 @@ require (
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.13.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/stretchr/testify v1.9.0 // indirect
 	github.com/tomnomnom/linkheader v0.0.0-20180905144013-02ca5825eb80 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.56.0 // indirect
