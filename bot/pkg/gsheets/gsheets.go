@@ -42,13 +42,15 @@ func NewGSheetsClient(credentialsFile, sheetID, sheetName string) (*Client, erro
 // AppendRow adds a new entry to the Google Sheet, formatted with URL, Post Type, and Responded checkbox.
 func (c *Client) AppendRow(post post.Post) error {
 	rowData := []interface{}{
+		post.ID,
 		post.URI,
 		post.Type,
 		post.Content,
+		post.Source,
 		false,
 	}
 
-	writeRange := fmt.Sprintf("%s!A:C", c.SheetName) // Columns A to C
+	writeRange := fmt.Sprintf("%s!A:F", c.SheetName) // Columns A to F
 
 	// Append data to the specified range in the sheet
 	_, err := c.Service.Spreadsheets.Values.Append(c.SheetID, writeRange, &sheets.ValueRange{

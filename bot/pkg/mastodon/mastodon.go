@@ -136,9 +136,11 @@ func createPost(URI string, content string, postType post.NYTContentType) (*post
 		return nil, fmt.Errorf("empty content or uri. Content: %s, URI: %s", URI, content)
 	}
 	post := post.Post{
+		ID:      URI,
 		URI:     URI,
 		Content: content,
 		Type:    postType,
+		Source:  post.Mastodon,
 	}
 	return &post, nil
 }
