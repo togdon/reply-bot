@@ -28,7 +28,7 @@ func main() {
 	writeChan := make(chan interface{})
 	gsheetClient, err := gsheets.NewGSheetsClient(gsheets.CREDS_FILE, gsheets.SHEET_ID, gsheets.SHEET_NAME)
 	if err != nil {
-		log.Fatalf("Unable to create gsheets client: %w", err)
+		log.Fatalf("Unable to create gsheets client: %v", err)
 	}
 	mastodonClient, err := mastodon.NewClient(
 		writeChan,
