@@ -12,55 +12,51 @@ import (
 )
 
 const (
-	SHEET_ID   = "1wD8zsIcn9vUPmL749MFAreXx8cfaYeqRfFoGuSnJ2Lk"
-	SHEET_NAME = "replies"
-	CREDS_FILE = "credentials.json"
+	sheetID   = "1wD8zsIcn9vUPmL749MFAreXx8cfaYeqRfFoGuSnJ2Lk"
+	sheetName = "replies"
+	credsFile = "credentials.json"
 )
 
-// GSheetsClient encapsulates the Sheets service and sheet configuration.
+// Client encapsulates the Sheets service and sheet configuration.
 type Client struct {
-	Service   *sheets.Service
-	SheetID   string
-	SheetName string
+	service   *sheets.Service
+	sheetID   string
+	sheetName string
 }
 
-// NewGSheetsClient initializes a Google Sheets API client and returns a GSheetsClient instance.
-func NewGSheetsClient(credentialsFile, sheetID, sheetName string) (*Client, error) {
-	ctx := context.Background()
-	service, err := sheets.NewService(ctx, option.WithCredentialsFile(credentialsFile))
+// NewClient initializes a Google Sheets API client and returns a Client instance.
+func NewClient(ctx context.Context) (*Client, error) {
+	service, err := sheets.NewService(ctx, option.WithCredentialsFile(credsFile))
 	if err != nil {
 		return nil, fmt.Errorf("unable to create Sheets client: %v", err)
 	}
 
 	return &Client{
-		Service:   service,
-		SheetID:   sheetID,
-		SheetName: sheetName,
+		service:   service,
+		sheetID:   sheetID,
+		sheetName: sheetName,
 	}, nil
 }
 
 // AppendRow adds a new entry to the Google Sheet, formatted with URL, Post Type, and Responded checkbox.
 func (c *Client) AppendRow(post post.Post) error {
-	rowData := []interface{}{
-		post.ID,
-		post.URI,
-		post.Type,
-		post.Content,
-		post.Source,
-		false,
-	}
-
-	writeRange := fmt.Sprintf("%s!A:F", c.SheetName) // Columns A to F
-
 	// Append data to the specified range in the sheet
-	_, err := c.Service.Spreadsheets.Values.Append(c.SheetID, writeRange, &sheets.ValueRange{
-		Values: [][]interface{}{rowData},
-	}).ValueInputOption("USER_ENTERED").Do()
-
-	if err != nil {
+	if _, err := c.service.Spreadsheets.Values.Append(c.sheetID, fmt.Sprintf("%s!A:F", c.sheetName), &sheets.ValueRange{
+		Values: [][]interface{}{
+			{
+				post.ID,
+				post.URI,
+				post.Type,
+				post.Content,
+				post.Source,
+				false,
+			},
+		},
+	}).ValueInputOption("USER_ENTERED").Do(); err != nil {
 		return fmt.Errorf("unable to append data to sheet: %v", err)
 	}
 
 	log.Println("Row successfully appended.")
+
 	return nil
 }
