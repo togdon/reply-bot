@@ -43,7 +43,7 @@ func WithConfig(cfg environment.Config) Option {
 	}
 }
 
-func NewClient(ch chan interface{}, gsheetsClient *gsheets.Client, options ...Option) (*Client, error) {
+func NewClient(gsheetsClient *gsheets.Client, options ...Option) (*Client, error) {
 	var cfg config
 
 	for _, opt := range options {
@@ -61,11 +61,20 @@ func NewClient(ch chan interface{}, gsheetsClient *gsheets.Client, options ...Op
 				AccessToken:  cfg.accessToken,
 			}),
 		gsheetsClient: gsheetsClient,
-		writeChannel:  ch,
+		writeChannel:  make(chan interface{}),
 	}, nil
 }
 
-func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan error) {
+func (c *Client) Run(ctx context.Context, errs chan error) {
+	go c.read(ctx, errs)
+	go c.write(ctx, errs)
+
+	<-ctx.Done()
+
+	fmt.Println("Context cancelled, shutting down Mastodon client...")
+}
+
+func (c *Client) read(ctx context.Context, errs chan<- error) {
 	events, err := c.mastodonClient.StreamingPublic(ctx, false)
 	if err != nil {
 		errs <- err
@@ -103,14 +112,12 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 				// How should we handle this?
 			}
 		case <-ctx.Done():
-			fmt.Println("Context cancelled, shutting down Mastodon client...")
 			return
 		}
 	}
 }
 
-func (c *Client) Write(ctx context.Context) {
-
+func (c *Client) write(ctx context.Context, errs chan<- error) {
 	for {
 		select {
 		case event := <-c.writeChannel:
@@ -125,7 +132,6 @@ func (c *Client) Write(ctx context.Context) {
 				// How should we handle this?
 			}
 		case <-ctx.Done():
-			fmt.Println("Context cancelled, shutting down Mastodon client...")
 			return
 		}
 	}
@@ -135,6 +141,7 @@ func createPost(URI string, content string, postType post.NYTContentType) (*post
 	if URI == "" || content == "" {
 		return nil, fmt.Errorf("empty content or uri. Content: %s, URI: %s", URI, content)
 	}
+
 	post := post.Post{
 		ID:      URI,
 		URI:     URI,
@@ -142,6 +149,7 @@ func createPost(URI string, content string, postType post.NYTContentType) (*post
 		Type:    postType,
 		Source:  post.Mastodon,
 	}
+
 	return &post, nil
 }
 
@@ -190,6 +198,7 @@ func findURLs(s string) string {
 				if a.Key == "href" {
 					url = a.Val
 				}
+
 				if a.Key == "class" {
 					class = a.Val
 				}
@@ -210,6 +219,7 @@ func findURLs(s string) string {
 	}
 
 	extractURL(doc, &buf)
+
 	return buf.String()
 }
 
@@ -226,6 +236,7 @@ func parseURLs(urls string) bool {
 			}
 
 			newsRE := regexp.MustCompile(`(?i)nytimes\.com`)
+
 			if newsRE.MatchString(u) {
 				return true
 			}

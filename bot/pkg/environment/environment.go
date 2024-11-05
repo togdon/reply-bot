@@ -23,10 +23,10 @@ type BlueSky struct {
 
 func New() (*Config, error) {
 	var cfg Config
-	err := env.Parse(&cfg)
-	if err != nil {
+
+	if err := env.Parse(&cfg); err != nil {
 		return nil, err
 	}
-	return &cfg, nil
 
+	return &cfg, nil
 }

@@ -6,37 +6,27 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/togdon/reply-bot/bot/pkg/environment"
-	"github.com/togdon/reply-bot/bot/pkg/mastodon"
 	"github.com/togdon/reply-bot/bot/pkg/gsheets"
+	"github.com/togdon/reply-bot/bot/pkg/mastodon"
 )
-
-
 
 func main() {
 	cfg, err := environment.New()
-
 	if err != nil {
 		log.Fatalf("Error loading .env or ENV: %v", err)
 	}
+
 	log.Printf("Successfully read the env\n")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	writeChan := make(chan interface{})
-	gsheetClient, err := gsheets.NewGSheetsClient(gsheets.CREDS_FILE, gsheets.SHEET_ID, gsheets.SHEET_NAME)
+	gsheetClient, err := gsheets.NewClient(ctx)
 	if err != nil {
 		log.Fatalf("Unable to create gsheets client: %v", err)
-	}
-	mastodonClient, err := mastodon.NewClient(
-		writeChan,
-		gsheetClient,
-		mastodon.WithConfig(*cfg),
-	)
-	if err != nil {
-		log.Fatal(err)
 	}
 
 	errs := make(chan error, 1)
@@ -49,15 +39,24 @@ func main() {
 		cancel()
 	}()
 
-	go mastodonClient.Run(ctx, cancel, errs)
-	go mastodonClient.Write(ctx)
+	mastodonClient, err := mastodon.NewClient(gsheetClient, mastodon.WithConfig(*cfg))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	go mastodonClient.Run(ctx, errs)
 
 	for {
 		select {
 		case err := <-errs:
 			fmt.Println(err)
 		case <-ctx.Done():
+			fmt.Println("Context cancelled, waiting 5 seconds for services to shut down...")
+
+			time.Sleep(5 * time.Second)
+
 			fmt.Println("Shutting down...")
+
 			return
 		}
 	}
