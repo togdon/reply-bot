@@ -12,11 +12,13 @@ import (
 
 	"github.com/mattn/go-mastodon"
 	"github.com/togdon/reply-bot/bot/pkg/environment"
+	"github.com/togdon/reply-bot/bot/pkg/post"
 	"golang.org/x/net/html"
 )
 
 type Client struct {
 	mastodonClient *mastodon.Client
+	writeChannel chan interface{}
 }
 
 type config struct {
@@ -85,6 +87,39 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 	}
 }
 
+func (c *Client) Write(ctx context.Context, cancel context.CancelFunc, errs chan error) {
+
+	for {
+		select {
+		case event := <-c.writeChannel:
+			switch e := event.(type) {
+			case *mastodon.UpdateEvent:
+				if parseContent(e.Status.Content) {
+					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
+				}
+			case *mastodon.UpdateEditEvent:
+				if parseContent(e.Status.Content) {
+					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
+				}
+			default:
+				// How should we handle this?
+			}
+		case <-ctx.Done():
+			fmt.Println("Context cancelled, shutting down Mastodon client...")
+			return
+		}
+	}
+}
+
+
+func createPost(URI string, content string, postType NYTContentType) (Post, error){
+	if URI == "" || content == ""{
+		return nil, fmt.Errorf("empty content or uri. Content: %s, URI: %s", URI, content)
+	}
+	return &Post{
+
+	}
+}
 // parses the content of a post and returns true if it contains a match for NYT Urls or Games shares
 func parseContent(content string) bool {
 	if content != "" {
