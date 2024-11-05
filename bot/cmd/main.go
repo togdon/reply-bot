@@ -28,7 +28,9 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	writeChan := make(chan interface{})
 	mastodonClient, err := mastodon.NewClient(
+		writeChan,
 		mastodon.WithConfig(*cfg),
 	)
 	if err != nil {
@@ -46,6 +48,7 @@ func main() {
 	}()
 
 	go mastodonClient.Run(ctx, cancel, errs)
+	go mastodonClient.Write(ctx)
 
 	for {
 		select {

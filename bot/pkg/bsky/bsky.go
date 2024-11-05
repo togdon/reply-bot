@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/togdon/reply-bot/gsheets"
+	"github.com/togdon/reply-bot/bot/pkg/gsheets"
 )
 
 const (
@@ -31,7 +31,7 @@ type SearchResponse struct {
 	Feed []FeedItem `json:"feed"`
 }
 
-func FetchPosts(client *gsheets.GSheetsClient) {
+func FetchPosts(client *gsheets.Client) {
 
 	resp, err := http.Get(bskyFeedUrl)
 
