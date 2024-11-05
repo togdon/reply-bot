@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/togdon/reply-bot/bot/pkg/post"
 	"github.com/togdon/reply-bot/gsheets"
 )
 
@@ -31,9 +32,13 @@ type SearchResponse struct {
 	Feed []FeedItem `json:"feed"`
 }
 
-func FetchPosts(client *gsheets.GSheetsClient) {
+func FetchPosts(contentType post.NYTContentType, client *gsheets.GSheetsClient) {
 
 	resp, err := http.Get(bskyFeedUrl)
+
+	// temporary workaround to pass correct type into google sheet write (string, rather than content type).
+	//TODO: remove/refactor this once sheets write logic is finalized
+	postType := string(contentType)
 
 	if err != nil {
 		panic(err)
@@ -63,6 +68,9 @@ func FetchPosts(client *gsheets.GSheetsClient) {
 
 		fmt.Printf("Associated URL: %s\n", url)
 
+		if err := client.AppendRow(url, postType); err != nil {
+			fmt.Printf("error writing to google sheet: %v\n", err)
+		}
 	}
 
 	//TODO write to the google sheet where responses can be generated?
