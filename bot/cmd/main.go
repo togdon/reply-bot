@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/togdon/reply-bot/bot/pkg/environment"
 	"github.com/togdon/reply-bot/bot/pkg/mastodon"
 )
 
@@ -17,19 +18,18 @@ const (
 )
 
 func main() {
-	envs, err := GetConfig()
+	cfg, err := environment.New()
+
 	if err != nil {
 		log.Fatalf("Error loading .env or ENV: %v", err)
 	}
+	log.Printf("Successfully read the env\n")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	mastodonClient, err := mastodon.NewClient(
-		mastodon.WithServer(envs["MASTODON_SERVER"]),
-		mastodon.WithClientID(envs["APP_CLIENT_ID"]),
-		mastodon.WithClientSecret(envs["APP_CLIENT_SECRET"]),
-		mastodon.WithAccessToken(envs["APP_TOKEN"]),
+		mastodon.WithConfig(*cfg),
 	)
 	if err != nil {
 		log.Fatal(err)
