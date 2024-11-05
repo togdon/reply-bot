@@ -106,8 +106,14 @@ func createPostFromBskyPost(URI string, content string, postType post.NYTContent
 	if URI == "" || content == "" {
 		return post.Post{}, fmt.Errorf("empty content or uri. Content: %s, URI: %s", URI, content)
 	}
+
+	rKey, err := extractRKey(URI)
+	if err != nil {
+		return post.Post{}, fmt.Errorf("failed to extract rkey for post: %w", err)
+	}
+
 	post := post.Post{
-		ID:      URI,
+		ID:      rKey,
 		URI:     URI,
 		Content: content,
 		Type:    postType,
