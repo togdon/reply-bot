@@ -1,7 +1,6 @@
 package post
 
 const (
-	Games       NYTContentType = "games"
 	Connections NYTContentType = "connections"
 	Crossword   NYTContentType = "crossword"
 	Wordle      NYTContentType = "wordle"
@@ -13,6 +12,7 @@ type NYTContentType string
 
 type Post struct {
 	ID      string
+	URI     string
 	Content string
 	Type    NYTContentType
 }

@@ -18,7 +18,7 @@ import (
 
 type Client struct {
 	mastodonClient *mastodon.Client
-	writeChannel chan interface{}
+	writeChannel   chan interface{}
 }
 
 type config struct {
@@ -30,7 +30,6 @@ type config struct {
 
 type Option func(*config) error
 
-
 func WithConfig(cfg environment.Config) Option {
 	return func(c *config) error {
 		c.accessToken = cfg.Mastodon.AccessToken
@@ -41,7 +40,7 @@ func WithConfig(cfg environment.Config) Option {
 	}
 }
 
-func NewClient(options ...Option) (*Client, error) {
+func NewClient(ch chan interface{}, options ...Option) (*Client, error) {
 	var cfg config
 
 	for _, opt := range options {
@@ -56,7 +55,7 @@ func NewClient(options ...Option) (*Client, error) {
 			ClientID:     cfg.clientID,
 			ClientSecret: cfg.clientSecret,
 			AccessToken:  cfg.accessToken,
-		})}, nil
+		}), writeChannel: ch}, nil
 }
 
 func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan error) {
@@ -72,10 +71,26 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 			case *mastodon.UpdateEvent:
 				if parseContent(e.Status.Content) {
 					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
+					post, err := createPost(e.Status.URI, e.Status.Content, post.Connections)
+					if err == nil {
+						c.writeChannel <- post
+						continue
+					}
+
+					fmt.Printf("Unable to parse post: %v", err)
+
 				}
 			case *mastodon.UpdateEditEvent:
 				if parseContent(e.Status.Content) {
 					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
+					post, err := createPost(e.Status.URI, e.Status.Content, post.Connections)
+					if err == nil {
+						c.writeChannel <- post
+						continue
+					}
+
+					fmt.Printf("Unable to parse post: %v", err)
+
 				}
 			default:
 				// How should we handle this?
@@ -87,20 +102,14 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 	}
 }
 
-func (c *Client) Write(ctx context.Context, cancel context.CancelFunc, errs chan error) {
+func (c *Client) Write(ctx context.Context) {
 
 	for {
 		select {
 		case event := <-c.writeChannel:
 			switch e := event.(type) {
-			case *mastodon.UpdateEvent:
-				if parseContent(e.Status.Content) {
-					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
-				}
-			case *mastodon.UpdateEditEvent:
-				if parseContent(e.Status.Content) {
-					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
-				}
+			case *post.Post:
+				fmt.Printf("Post received: %v", e)
 			default:
 				// How should we handle this?
 			}
@@ -111,15 +120,18 @@ func (c *Client) Write(ctx context.Context, cancel context.CancelFunc, errs chan
 	}
 }
 
-
-func createPost(URI string, content string, postType NYTContentType) (Post, error){
-	if URI == "" || content == ""{
+func createPost(URI string, content string, postType post.NYTContentType) (*post.Post, error) {
+	if URI == "" || content == "" {
 		return nil, fmt.Errorf("empty content or uri. Content: %s, URI: %s", URI, content)
 	}
-	return &Post{
-
+	post := post.Post{
+		URI:     URI,
+		Content: content,
+		Type:    postType,
 	}
+	return &post, nil
 }
+
 // parses the content of a post and returns true if it contains a match for NYT Urls or Games shares
 func parseContent(content string) bool {
 	if content != "" {
