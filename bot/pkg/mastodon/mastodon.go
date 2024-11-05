@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/mattn/go-mastodon"
 	"github.com/togdon/reply-bot/bot/pkg/environment"
+	"github.com/togdon/reply-bot/bot/pkg/gsheets"
 	"github.com/togdon/reply-bot/bot/pkg/post"
 	"golang.org/x/net/html"
 )
@@ -19,6 +21,7 @@ import (
 type Client struct {
 	mastodonClient *mastodon.Client
 	writeChannel   chan interface{}
+	gsheetsClient  *gsheets.Client
 }
 
 type config struct {
@@ -40,7 +43,7 @@ func WithConfig(cfg environment.Config) Option {
 	}
 }
 
-func NewClient(ch chan interface{}, options ...Option) (*Client, error) {
+func NewClient(ch chan interface{}, gsheetsClient *gsheets.Client, options ...Option) (*Client, error) {
 	var cfg config
 
 	for _, opt := range options {
@@ -50,12 +53,16 @@ func NewClient(ch chan interface{}, options ...Option) (*Client, error) {
 	}
 
 	return &Client{
-		mastodonClient: mastodon.NewClient(&mastodon.Config{
-			Server:       cfg.server,
-			ClientID:     cfg.clientID,
-			ClientSecret: cfg.clientSecret,
-			AccessToken:  cfg.accessToken,
-		}), writeChannel: ch}, nil
+		mastodonClient: mastodon.NewClient(
+			&mastodon.Config{
+				Server:       cfg.server,
+				ClientID:     cfg.clientID,
+				ClientSecret: cfg.clientSecret,
+				AccessToken:  cfg.accessToken,
+			}),
+		gsheetsClient: gsheetsClient,
+		writeChannel:  ch,
+	}, nil
 }
 
 func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan error) {
@@ -110,6 +117,10 @@ func (c *Client) Write(ctx context.Context) {
 			switch e := event.(type) {
 			case *post.Post:
 				fmt.Printf("Post received: %v", e)
+				err := c.gsheetsClient.AppendRow(*e)
+				if err != nil {
+					log.Printf("unable to write post to gsheet: %v", err)
+				}
 			default:
 				// How should we handle this?
 			}
@@ -125,9 +136,11 @@ func createPost(URI string, content string, postType post.NYTContentType) (*post
 		return nil, fmt.Errorf("empty content or uri. Content: %s, URI: %s", URI, content)
 	}
 	post := post.Post{
+		ID:      URI,
 		URI:     URI,
 		Content: content,
 		Type:    postType,
+		Source:  post.Mastodon,
 	}
 	return &post, nil
 }
