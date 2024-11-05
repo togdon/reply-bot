@@ -36,9 +36,6 @@ func FetchPosts(contentType post.NYTContentType, client *gsheets.Client) {
 
 	resp, err := http.Get(bskyFeedUrl)
 
-	// temporary workaround to pass correct type into google sheet write (string, rather than content type).
-	//TODO: remove/refactor this once sheets write logic is finalized
-
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +64,7 @@ func FetchPosts(contentType post.NYTContentType, client *gsheets.Client) {
 
 		fmt.Printf("Associated URL: %s\n", url)
 
-		post, err := createPost(url, item.Post.Record["text"].(string), contentType)
+		post, err := createPostFromBskyPost(url, item.Post.Record["text"].(string), contentType)
 		if err != nil {
 			fmt.Printf("error creating post for uri %s: %v\n", url, err)
 		}
@@ -105,7 +102,7 @@ func extractRKey(uri string) (string, error) {
 	return parts[len(parts)-1], nil
 }
 
-func createPost(URI string, content string, postType post.NYTContentType) (post.Post, error) {
+func createPostFromBskyPost(URI string, content string, postType post.NYTContentType) (post.Post, error) {
 	if URI == "" || content == "" {
 		return post.Post{}, fmt.Errorf("empty content or uri. Content: %s, URI: %s", URI, content)
 	}
