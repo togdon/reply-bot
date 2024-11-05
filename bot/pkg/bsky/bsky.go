@@ -38,7 +38,6 @@ func FetchPosts(contentType post.NYTContentType, client *gsheets.Client) {
 
 	// temporary workaround to pass correct type into google sheet write (string, rather than content type).
 	//TODO: remove/refactor this once sheets write logic is finalized
-	postType := string(contentType)
 
 	if err != nil {
 		panic(err)
@@ -68,7 +67,12 @@ func FetchPosts(contentType post.NYTContentType, client *gsheets.Client) {
 
 		fmt.Printf("Associated URL: %s\n", url)
 
-		if err := client.AppendRow(url, postType); err != nil {
+		post, err := createPost(url, item.Post.Record["text"].(string), contentType)
+		if err != nil {
+			fmt.Printf("error creating post for uri %s: %v\n", url, err)
+		}
+
+		if err := client.AppendRow(post); err != nil {
 			fmt.Printf("error writing to google sheet: %v\n", err)
 		}
 	}
@@ -99,4 +103,18 @@ func extractRKey(uri string) (string, error) {
 	}
 
 	return parts[len(parts)-1], nil
+}
+
+func createPost(URI string, content string, postType post.NYTContentType) (post.Post, error) {
+	if URI == "" || content == "" {
+		return post.Post{}, fmt.Errorf("empty content or uri. Content: %s, URI: %s", URI, content)
+	}
+	post := post.Post{
+		ID:      URI,
+		URI:     URI,
+		Content: content,
+		Type:    postType,
+		Source:  post.BlueSky,
+	}
+	return post, nil
 }
