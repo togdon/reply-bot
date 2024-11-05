@@ -23,7 +23,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading .env or ENV: %v", err)
 	}
-	log.Printf("we read the env, here it is: %v\n", cfg)
+	log.Printf("Successfully read the env\n")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
