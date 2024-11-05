@@ -5,6 +5,7 @@ const (
 	Connections NYTContentType = "connections"
 	Crossword   NYTContentType = "crossword"
 	Wordle      NYTContentType = "wordle"
+	Strands     NYTContentType = "strands"
 )
 
 // Where the type can be one of Strands, Connections, Wordle, Crossword
