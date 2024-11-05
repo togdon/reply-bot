@@ -7,6 +7,14 @@ import (
 
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
+
+	"github.com/togdon/reply-bot/bot/pkg/post"
+)
+
+const (
+	SHEET_ID   = "1wD8zsIcn9vUPmL749MFAreXx8cfaYeqRfFoGuSnJ2Lk"
+	SHEET_NAME = "replies"
+	CREDS_FILE = "credentials.json"
 )
 
 // GSheetsClient encapsulates the Sheets service and sheet configuration.
@@ -32,10 +40,11 @@ func NewGSheetsClient(credentialsFile, sheetID, sheetName string) (*Client, erro
 }
 
 // AppendRow adds a new entry to the Google Sheet, formatted with URL, Post Type, and Responded checkbox.
-func (c *Client) AppendRow(url, postType string) error {
+func (c *Client) AppendRow(post post.Post) error {
 	rowData := []interface{}{
-		url,
-		postType,
+		post.URI,
+		post.Type,
+		post.Content,
 		false,
 	}
 
