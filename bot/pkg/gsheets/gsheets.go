@@ -7,24 +7,32 @@ import (
 
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
+
+	"github.com/togdon/reply-bot/bot/pkg/post"
+)
+
+const (
+	SHEET_ID   = "1wD8zsIcn9vUPmL749MFAreXx8cfaYeqRfFoGuSnJ2Lk"
+	SHEET_NAME = "replies"
+	CREDS_FILE = "credentials.json"
 )
 
 // GSheetsClient encapsulates the Sheets service and sheet configuration.
-type GSheetsClient struct {
+type Client struct {
 	Service   *sheets.Service
 	SheetID   string
 	SheetName string
 }
 
 // NewGSheetsClient initializes a Google Sheets API client and returns a GSheetsClient instance.
-func NewGSheetsClient(credentialsFile, sheetID, sheetName string) (*GSheetsClient, error) {
+func NewGSheetsClient(credentialsFile, sheetID, sheetName string) (*Client, error) {
 	ctx := context.Background()
 	service, err := sheets.NewService(ctx, option.WithCredentialsFile(credentialsFile))
 	if err != nil {
 		return nil, fmt.Errorf("unable to create Sheets client: %v", err)
 	}
 
-	return &GSheetsClient{
+	return &Client{
 		Service:   service,
 		SheetID:   sheetID,
 		SheetName: sheetName,
@@ -32,14 +40,17 @@ func NewGSheetsClient(credentialsFile, sheetID, sheetName string) (*GSheetsClien
 }
 
 // AppendRow adds a new entry to the Google Sheet, formatted with URL, Post Type, and Responded checkbox.
-func (c *GSheetsClient) AppendRow(url, postType string) error {
+func (c *Client) AppendRow(post post.Post) error {
 	rowData := []interface{}{
-		url,
-		postType,
+		post.ID,
+		post.URI,
+		post.Type,
+		post.Content,
+		post.Source,
 		false,
 	}
 
-	writeRange := fmt.Sprintf("%s!A:C", c.SheetName) // Columns A to C
+	writeRange := fmt.Sprintf("%s!A:F", c.SheetName) // Columns A to F
 
 	// Append data to the specified range in the sheet
 	_, err := c.Service.Spreadsheets.Values.Append(c.SheetID, writeRange, &sheets.ValueRange{

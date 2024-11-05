@@ -9,13 +9,10 @@ import (
 
 	"github.com/togdon/reply-bot/bot/pkg/environment"
 	"github.com/togdon/reply-bot/bot/pkg/mastodon"
+	"github.com/togdon/reply-bot/bot/pkg/gsheets"
 )
 
-const (
-	SHEET_ID   = "1wD8zsIcn9vUPmL749MFAreXx8cfaYeqRfFoGuSnJ2Lk"
-	SHEET_NAME = "replies"
-	CREDS_FILE = "credentials.json"
-)
+
 
 func main() {
 	cfg, err := environment.New()
@@ -28,7 +25,14 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	writeChan := make(chan interface{})
+	gsheetClient, err := gsheets.NewGSheetsClient(gsheets.CREDS_FILE, gsheets.SHEET_ID, gsheets.SHEET_NAME)
+	if err != nil {
+		log.Fatalf("Unable to create gsheets client: %v", err)
+	}
 	mastodonClient, err := mastodon.NewClient(
+		writeChan,
+		gsheetClient,
 		mastodon.WithConfig(*cfg),
 	)
 	if err != nil {
@@ -46,6 +50,7 @@ func main() {
 	}()
 
 	go mastodonClient.Run(ctx, cancel, errs)
+	go mastodonClient.Write(ctx)
 
 	for {
 		select {

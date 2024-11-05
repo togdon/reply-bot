@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -12,11 +13,15 @@ import (
 
 	"github.com/mattn/go-mastodon"
 	"github.com/togdon/reply-bot/bot/pkg/environment"
+	"github.com/togdon/reply-bot/bot/pkg/gsheets"
+	"github.com/togdon/reply-bot/bot/pkg/post"
 	"golang.org/x/net/html"
 )
 
 type Client struct {
 	mastodonClient *mastodon.Client
+	writeChannel   chan interface{}
+	gsheetsClient  *gsheets.Client
 }
 
 type config struct {
@@ -28,7 +33,6 @@ type config struct {
 
 type Option func(*config) error
 
-
 func WithConfig(cfg environment.Config) Option {
 	return func(c *config) error {
 		c.accessToken = cfg.Mastodon.AccessToken
@@ -39,7 +43,7 @@ func WithConfig(cfg environment.Config) Option {
 	}
 }
 
-func NewClient(options ...Option) (*Client, error) {
+func NewClient(ch chan interface{}, gsheetsClient *gsheets.Client, options ...Option) (*Client, error) {
 	var cfg config
 
 	for _, opt := range options {
@@ -49,12 +53,16 @@ func NewClient(options ...Option) (*Client, error) {
 	}
 
 	return &Client{
-		mastodonClient: mastodon.NewClient(&mastodon.Config{
-			Server:       cfg.server,
-			ClientID:     cfg.clientID,
-			ClientSecret: cfg.clientSecret,
-			AccessToken:  cfg.accessToken,
-		})}, nil
+		mastodonClient: mastodon.NewClient(
+			&mastodon.Config{
+				Server:       cfg.server,
+				ClientID:     cfg.clientID,
+				ClientSecret: cfg.clientSecret,
+				AccessToken:  cfg.accessToken,
+			}),
+		gsheetsClient: gsheetsClient,
+		writeChannel:  ch,
+	}, nil
 }
 
 func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan error) {
@@ -70,10 +78,26 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 			case *mastodon.UpdateEvent:
 				if parseContent(e.Status.Content) {
 					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
+					post, err := createPost(e.Status.URI, e.Status.Content, post.Connections)
+					if err == nil {
+						c.writeChannel <- post
+						continue
+					}
+
+					fmt.Printf("Unable to parse post: %v", err)
+
 				}
 			case *mastodon.UpdateEditEvent:
 				if parseContent(e.Status.Content) {
 					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
+					post, err := createPost(e.Status.URI, e.Status.Content, post.Connections)
+					if err == nil {
+						c.writeChannel <- post
+						continue
+					}
+
+					fmt.Printf("Unable to parse post: %v", err)
+
 				}
 			default:
 				// How should we handle this?
@@ -83,6 +107,42 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 			return
 		}
 	}
+}
+
+func (c *Client) Write(ctx context.Context) {
+
+	for {
+		select {
+		case event := <-c.writeChannel:
+			switch e := event.(type) {
+			case *post.Post:
+				fmt.Printf("Post received: %v", e)
+				err := c.gsheetsClient.AppendRow(*e)
+				if err != nil {
+					log.Printf("unable to write post to gsheet: %v", err)
+				}
+			default:
+				// How should we handle this?
+			}
+		case <-ctx.Done():
+			fmt.Println("Context cancelled, shutting down Mastodon client...")
+			return
+		}
+	}
+}
+
+func createPost(URI string, content string, postType post.NYTContentType) (*post.Post, error) {
+	if URI == "" || content == "" {
+		return nil, fmt.Errorf("empty content or uri. Content: %s, URI: %s", URI, content)
+	}
+	post := post.Post{
+		ID:      URI,
+		URI:     URI,
+		Content: content,
+		Type:    postType,
+		Source:  post.Mastodon,
+	}
+	return &post, nil
 }
 
 // parses the content of a post and returns true if it contains a match for NYT Urls or Games shares
