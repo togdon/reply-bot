@@ -10,6 +10,10 @@ import (
 	"github.com/togdon/reply-bot/gsheets"
 )
 
+const (
+	bskyFeedUrl = "https://public.api.bsky.app/xrpc/app.bsky.feed.getFeed?feed=at://did:plc:ltradugkwaw6yfotr7boceaj/app.bsky.feed.generator/aaapztniwbk46"
+)
+
 type Post struct {
 	URI         string                 `json:"uri"`
 	CID         string                 `json:"cid"`
@@ -19,19 +23,17 @@ type Post struct {
 	RepostCount int                    `json:"reposeCount"`
 	QuoteCount  int                    `json:"quoteCount"`
 }
+type FeedItem struct {
+	Post Post `json:"post"`
+}
+
+type SearchResponse struct {
+	Feed []FeedItem `json:"feed"`
+}
 
 func FetchPosts(client *gsheets.GSheetsClient) {
-	BSKY_API_URL := "https://public.api.bsky.app/xrpc"
 
-	BSKY_SEARCH_ENDPOINT := "app.bsky.feed.searchPosts"
-
-	SEARCH_URL := strings.Join([]string{BSKY_API_URL, BSKY_SEARCH_ENDPOINT}, "/")
-
-	search_query := "q=wordle"
-
-	search := strings.Join([]string{SEARCH_URL, search_query}, "?")
-
-	resp, err := http.Get(search)
+	resp, err := http.Get(bskyFeedUrl)
 
 	if err != nil {
 		panic(err)
@@ -45,37 +47,25 @@ func FetchPosts(client *gsheets.GSheetsClient) {
 		panic(err)
 	}
 
-	type SearchResponse struct {
-		Cursor    string `json:"cursor"` //TODO pagination, no idea how it works yet
-		HitsTotal int    `json:"hitsTotal"`
-		Posts     []Post `json:"posts"` //rest of the struct is here https://docs.bsky.app/docs/api/app-bsky-feed-search-posts#responses
-	}
-
 	var search_hits SearchResponse
 
 	if err := json.Unmarshal(body, &search_hits); err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("found %d\n", search_hits.HitsTotal)
-
-	for _, post := range search_hits.Posts {
+	for _, item := range search_hits.Feed {
 		//TODO more specific logic to filter bots / low engagement posts / low follower authors?
 
-		// fmt.Println("URI: ", post["uri"]) //TODO not sure how to go from URI here to a browser loadable url?
-		// approach here: https://github.com/bluesky-social/atproto/discussions/2523#discussioncomment-9552109
-		// [noah] note: rather than using the DID, we use the author handle which makes the url more concise (in most cases) and readable
-
-		url, err := generateBskyUrl(post)
+		url, err := generateBskyUrl(item.Post)
 		if err != nil {
 			fmt.Printf("error generating bsky url for uri %v", err)
 		}
 
 		fmt.Printf("Associated URL: %s\n", url)
 
-		//TODO write to the google sheet where responses can be generated?
-
 	}
+
+	//TODO write to the google sheet where responses can be generated?
 }
 
 func generateBskyUrl(post Post) (string, error) {
