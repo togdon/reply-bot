@@ -150,9 +150,9 @@ func parseContent(content string) bool {
 	if content != "" {
 		// first, check for NYT URLs
 		if parseURLs(findURLs(content)) {
-			fmt.Printf("Found NYT URL: %v\n", content)
-			// return true
-			return false
+			// fmt.Printf("Found NYT Cooking URL: %v\n", content)
+			return true
+			// return false
 		}
 
 		// next, check for NYT Games shares
@@ -226,7 +226,7 @@ func parseURLs(urls string) bool {
 				u = unfurlURL(u)
 			}
 
-			newsRE := regexp.MustCompile(`(?i)nytimes\.com`)
+			newsRE := regexp.MustCompile(`(?i)cooking\.nytimes\.com`)
 			if newsRE.MatchString(u) {
 				return true
 			}
