@@ -25,9 +25,9 @@ type Client struct {
 }
 
 // NewGSheetsClient initializes a Google Sheets API client and returns a GSheetsClient instance.
-func NewGSheetsClient(credentialsFile, sheetID, sheetName string) (*Client, error) {
+func NewGSheetsClient(creds []byte, sheetID, sheetName string) (*Client, error) {
 	ctx := context.Background()
-	service, err := sheets.NewService(ctx, option.WithCredentialsFile(credentialsFile))
+	service, err := sheets.NewService(ctx, option.WithCredentialsJSON(creds))
 	if err != nil {
 		return nil, fmt.Errorf("unable to create Sheets client: %v", err)
 	}
