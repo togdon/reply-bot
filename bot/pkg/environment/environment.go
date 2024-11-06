@@ -8,7 +8,6 @@ type Config struct {
 	LogLevel string `env:"LOG_LEVEL" default:"info"`
 	Mastodon Mastodon
 	Google   Google
-	BlueSky  BlueSky
 }
 
 type Mastodon struct {
@@ -16,10 +15,6 @@ type Mastodon struct {
 	ClientID       string `env:"MASTODON_APP_CLIENT_ID,notEmpty"`
 	ClientSecret   string `env:"MASTODON_APP_CLIENT_SECRET,notEmpty"`
 	AccessToken    string `env:"MASTODON_ACCESS_TOKEN,notEmpty"`
-}
-
-type BlueSky struct {
-	FeedsConfigFile string `env:"BLUESKY_FEEDS_CONFIG_FILE,required"`
 }
 
 type Google struct {

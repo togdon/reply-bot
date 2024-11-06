@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	bskyFeedUrl  = "https://public.api.bsky.app/xrpc/app.bsky.feed.getFeed?feed=at://did:plc:ltradugkwaw6yfotr7boceaj/app.bsky.feed.generator/aaapztniwbk46"
-	pollInterval = 10000
+	bskyFeedUrl     = "https://public.api.bsky.app/xrpc/app.bsky.feed.getFeed?feed=at://did:plc:ltradugkwaw6yfotr7boceaj/app.bsky.feed.generator/aaapztniwbk46"
+	pollInterval    = 10000
+	feedsConfigFile = "bsky-feeds.json"
 )
 
 type Record struct {
@@ -52,7 +53,7 @@ type Client struct {
 	GoogleSheetsClient *gsheets.Client
 }
 
-func NewClient(feedsConfigFile string, gsheetsClient *gsheets.Client) *Client {
+func NewClient(gsheetsClient *gsheets.Client) *Client {
 	return &Client{
 		PollInterval:       pollInterval,
 		FeedsConfigFile:    feedsConfigFile,
@@ -60,70 +61,69 @@ func NewClient(feedsConfigFile string, gsheetsClient *gsheets.Client) *Client {
 	}
 }
 
-func (c *Client) Run() {
+func (c *Client) Run(errs chan error) {
 
-	feeds := c.loadFeedsFromConfigFile(c.FeedsConfigFile)
+	feeds, err := c.loadFeedsFromConfigFile(c.FeedsConfigFile)
+	if err != nil {
+		errs <- err
+	}
 
 	ticker := time.NewTicker(time.Duration(c.PollInterval) * time.Second)
 	defer ticker.Stop()
 
 	for {
 		<-ticker.C
-		fmt.Println("polling now")
+		log.Printf("Polling bsky now")
 		for _, feedConf := range feeds {
-			c.fetchPostsFromFeed(feedConf)
+			err := c.fetchPostsFromFeed(feedConf)
+			if err != nil {
+				errs <- err
+			}
 		}
 	}
 }
 
-func (c *Client) loadFeedsFromConfigFile(feedsConfigfileLoc string) []Feed {
+func (c *Client) loadFeedsFromConfigFile(feedsConfigfileLoc string) ([]Feed, error) {
 
 	feedFile, err := os.Open(feedsConfigfileLoc)
 	if err != nil {
-		fmt.Println("Error opening file:", err)
-		panic(err)
+		return nil, &bSkyError{Message: "error opening bsky config file", Err: err}
 	}
 	defer feedFile.Close()
 
 	feedRaw, err := io.ReadAll(feedFile)
 	if err != nil {
-		fmt.Println("Error reading file:", err)
-		panic(err)
+		return nil, &bSkyError{Message: "error reading bsky config file", Err: err}
 	}
 
 	var feeds []Feed
 	err = json.Unmarshal(feedRaw, &feeds)
 	if err != nil {
-		fmt.Println("Error unmarshaling JSON:", err)
-		panic(err)
+		return nil, &bSkyError{Message: "error unmarshaling bsky feeds", Err: err}
 	}
 
 	// Print the data
-	fmt.Println(feeds)
+	log.Printf("loaded bsky feeds")
 
-	return feeds
+	return feeds, nil
 }
 
-func (c *Client) fetchPostsFromFeed(feedConfig Feed) {
+func (c *Client) fetchPostsFromFeed(feedConfig Feed) error {
 
 	resp, err := http.Get(feedConfig.MachineUri)
-
 	if err != nil {
-		panic(err)
+		return &bSkyError{Message: "error fetching bsky feed", Err: err}
 	}
-
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
-
 	if err != nil {
-		panic(err)
+		return &bSkyError{Message: "error reading bsky feed response", Err: err}
 	}
 
 	var feedResponse FeedResponse
-
 	if err := json.Unmarshal(body, &feedResponse); err != nil {
-		panic(err)
+		return &bSkyError{Message: "error unmarshaling bsky feed response", Err: err}
 	}
 
 	for _, feedItem := range feedResponse.Feed {
@@ -143,28 +143,29 @@ func (c *Client) fetchPostsFromFeed(feedConfig Feed) {
 			post.NYTContentType(strings.ToLower(feedConfig.Label)),
 		)
 		if err != nil {
-			log.Printf("error creating post for uri %s: %v\n", url, err)
+			log.Printf("error creating bsky post for uri %s: %v\n", url, err)
 		}
 
 		if err := c.GoogleSheetsClient.AppendRow(post); err != nil {
-			log.Printf("error writing to google sheet: %v\n", err)
+			log.Printf("error writing bsky post to google sheet: %v\n", err)
 		}
 
-		fmt.Printf("Post created: %v\n", post)
+		log.Printf("bsky post created: %v\n", post)
 	}
 
+	return nil
 }
 
 func generateBskyUrl(post BlueskyPost) (string, error) {
 	uri := post.URI
 	handle, ok := post.Author["handle"]
 	if !ok {
-		return "", fmt.Errorf("author handle invalid")
+		return "", &bSkyError{Message: "error generating bsky urls", Err: fmt.Errorf("author handle invalid")}
 	}
 
 	rkey, err := extractRKey(uri)
 	if err != nil {
-		return "", fmt.Errorf("failed to extract rkey for post: %w", err)
+		return "", &bSkyError{Message: "error extracting rkey for post", Err: err}
 	}
 
 	return fmt.Sprintf("https://bsky.app/profile/%s/post/%s", handle, rkey), nil
@@ -174,7 +175,7 @@ func generateBskyUrl(post BlueskyPost) (string, error) {
 func extractRKey(uri string) (string, error) {
 	parts := strings.Split(uri, "/")
 	if len(parts) < 2 {
-		return "", fmt.Errorf("invalid uri format")
+		return "", &bSkyError{Message: "error extracting rkey for post", Err: fmt.Errorf("invalid uri format")}
 	}
 
 	return parts[len(parts)-1], nil
@@ -182,7 +183,7 @@ func extractRKey(uri string) (string, error) {
 
 func createPostFromBskyPost(CID, URI, content string, postType post.NYTContentType) (post.Post, error) {
 	if URI == "" || content == "" {
-		return post.Post{}, fmt.Errorf("empty content or uri. Content: %s, URI: %s", URI, content)
+		return post.Post{}, &bSkyError{Message: "error creating bsky post", Err: fmt.Errorf("empty content or uri. Content: %s, URI: %s", URI, content)}
 	}
 
 	post := post.Post{
@@ -194,4 +195,17 @@ func createPostFromBskyPost(CID, URI, content string, postType post.NYTContentTy
 	}
 
 	return post, nil
+}
+
+// Custom blue sky error type
+type bSkyError struct {
+	Message string
+	Err     error
+}
+
+func (e *bSkyError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("%s: %v", e.Message, e.Err)
+	}
+	return e.Message
 }

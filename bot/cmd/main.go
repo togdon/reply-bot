@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -45,6 +44,10 @@ func main() {
 		log.Printf("Successfully created mastodon client\n")
 	}
 
+	bskyClient := bsky.NewClient(
+		gsheetClient,
+	)
+
 	errs := make(chan error, 1)
 
 	sc := make(chan os.Signal, 1)
@@ -58,17 +61,12 @@ func main() {
 	go mastodonClient.Run(ctx, cancel, errs)
 	go mastodonClient.Write(ctx)
 
-	bskyClient := bsky.NewClient(
-		cfg.BlueSky.FeedsConfigFile,
-		gsheetClient,
-	)
-
-	bskyClient.Run()
+	go bskyClient.Run(errs)
 
 	for {
 		select {
 		case err := <-errs:
-			fmt.Println(err)
+			log.Printf("Error: %v", err)
 		case <-ctx.Done():
 			log.Printf("Shutting down...")
 			return
