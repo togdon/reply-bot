@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	gamesRegex = `(?P<wordle>Wordle\s[1-9],[0-9]{3}\s[X,1-6]\/[1-6])|(?P<connections>Connections\nPuzzle\s\#[1-6]{3}\n[🟨|🟩|🟦|🟪]*\n)|(?P<strands>Strands\s\#[1-9]{3}\n.*\n[🟡,🔵]*)|(?P<crossword>I\ssolved\sthe\s[0-9]{2}\/[0-9]{2}\/[0-9]{4}\sNew\sYork\sTimes(\sMini)?\sCrossword\sin\s)`
+	gamesRegex = `(?P<wordle>Wordle\s[1-9],[0-9]{3}\s[X,1-6]\/[1-6])|(?P<connections>Connections\nPuzzle\s\#[1-6]{3}\n[🟨|🟩|🟦|🟪]*\n)|(?P<strands>.*Strands\s\#[1-9]{3})|(?P<crossword>I\ssolved\sthe\s[0-9]{2}\/[0-9]{2}\/[0-9]{4}\sNew\sYork\sTimes(\sMini)?\sCrossword\sin\s)`
 )
 
 type Client struct {
@@ -70,49 +70,70 @@ func NewClient(ch chan interface{}, gsheetsClient *gsheets.Client, options ...Op
 }
 
 func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan error) {
+	streamCh := make(chan mastodon.Event)
+
+	// stream from public and then iterate to the known supported tags
+	// to use the hashtag api
 	events, err := c.mastodonClient.StreamingPublic(ctx, false)
-	if err != nil {
-		errs <- err
+	sendToStream(streamCh, errs, events, err)
+	for _, tag := range post.GetHashtagsFromTypes() {
+		ch, err := c.mastodonClient.StreamingHashtag(ctx, tag, false)
+		sendToStream(streamCh, errs, ch, err)
 	}
 
 	for {
 		select {
-		case event := <-events:
+		case event := <-streamCh:
 			switch e := event.(type) {
 			case *mastodon.UpdateEvent:
-				ok, contentType := parseContent(e.Status.Content)
+				ok, contentType := getContentType(e.Status.Content)
 				if ok {
-					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
+					log.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
 					post, err := createPost(e.Status.URI, e.Status.Content, contentType)
 					if err == nil {
 						c.writeChannel <- post
 						continue
 					}
 
-					fmt.Printf("Unable to parse post: %v", err)
+					log.Printf("Unable to parse post: %v", err)
 
 				}
 			case *mastodon.UpdateEditEvent:
-				ok, contentType := parseContent(e.Status.Content)
+				ok, contentType := getContentType(e.Status.Content)
 				if ok {
-					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
+					log.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
 					post, err := createPost(e.Status.URI, e.Status.Content, contentType)
 					if err == nil {
 						c.writeChannel <- post
 						continue
 					}
 
-					fmt.Printf("Unable to parse post: %v", err)
+					log.Printf("Unable to parse post: %v", err)
 
 				}
 			default:
 				// How should we handle this?
 			}
 		case <-ctx.Done():
-			fmt.Println("Context cancelled, shutting down Mastodon client...")
+			log.Printf("Context cancelled, shutting down Mastodon client...")
 			return
 		}
 	}
+}
+
+// sendToStream takes a channel and redirects events to a different channel
+// we're doing this because the mastodon API requires us to use different apis but it doesn't allow
+// to share a single channel
+func sendToStream(streamCh chan mastodon.Event, errs chan error, inCh chan mastodon.Event, err error) {
+	if err != nil {
+		errs <- err
+	}
+	go func() {
+		for {
+			ev := <-inCh
+			streamCh <- ev
+		}
+	}()
 }
 
 func (c *Client) Write(ctx context.Context) {
@@ -122,7 +143,7 @@ func (c *Client) Write(ctx context.Context) {
 		case event := <-c.writeChannel:
 			switch e := event.(type) {
 			case *post.Post:
-				fmt.Printf("Post received: %v", e)
+				log.Printf("Post received: %v", e)
 				err := c.gsheetsClient.AppendRow(*e)
 				if err != nil {
 					log.Printf("unable to write post to gsheet: %v", err)
@@ -131,7 +152,7 @@ func (c *Client) Write(ctx context.Context) {
 				// How should we handle this?
 			}
 		case <-ctx.Done():
-			fmt.Println("Context cancelled, shutting down Mastodon client...")
+			log.Println("Context cancelled, shutting down Mastodon client...")
 			return
 		}
 	}
@@ -152,21 +173,19 @@ func createPost(URI string, content string, postType post.NYTContentType) (*post
 }
 
 // parses the content of a post and returns true if it contains a match for NYT Urls or Games shares
-func parseContent(content string) (bool, post.NYTContentType) {
+func getContentType(content string) (bool, post.NYTContentType) {
 	var contentType post.NYTContentType
 	if content != "" {
 		// first, check for NYT URLs
 		if parseURLs(findURLs(content)) {
-			// fmt.Printf("Found NYT Cooking URL: %v\n", content)
+			log.Printf("Found NYT Cooking URL\n")
 			return true, post.Cooking
-			// return false
 		}
 
 		// next, check for NYT Games shares
 		re := regexp.MustCompile(gamesRegex)
 		if re.MatchString(content) {
-			fmt.Printf("group name %s\n", getContentType(content, re))
-			// fmt.Printf("Found NYT Games share: %v\n", content)
+			log.Printf("group name %s\n", extractContentType(content, re))
 			return true, contentType
 		}
 	}
@@ -174,19 +193,13 @@ func parseContent(content string) (bool, post.NYTContentType) {
 	return false, contentType
 }
 
-func getContentType(content string, re *regexp.Regexp) post.NYTContentType {
+func extractContentType(content string, re *regexp.Regexp) post.NYTContentType {
 	groupNames := re.SubexpNames()[1:]
 	var contentType post.NYTContentType
-	for matchNum, match := range re.FindAllStringSubmatch(content, -1) {
-		for groupIdx, group := range match {
-			name := groupNames[groupIdx]
-			if name == "" {
-				name = "*"
-			}
-			fmt.Printf("#%d text: '%s', group: '%s'\n", matchNum, group, name)
-			contentType = post.NYTContentType(name)
-			return contentType
-		}
+
+	for _, match := range re.FindStringSubmatch(content) {
+		contentType = post.GetContentType(match, groupNames)
+		return contentType
 	}
 
 	return contentType

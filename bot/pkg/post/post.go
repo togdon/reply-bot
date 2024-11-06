@@ -1,6 +1,9 @@
 package post
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 const (
 	Connections NYTContentType = "connections"
@@ -24,7 +27,18 @@ func NYTContentTypeFromString(ct string) NYTContentType {
 	return types[strings.ToLower(ct)]
 }
 
-// Where the type can be one of Strands, Connections, Wordle, Crossword
+var types = map[string]NYTContentType{
+	"connections": Connections,
+	"crossword":   Crossword,
+	"wordle":      Wordle,
+	"strands":     Strands,
+}
+
+func NYTContentTypeFromString(ct string) NYTContentType {
+	return types[strings.ToLower(ct)]
+}
+
+// Where the type can be one of Strands, Connections, Wordle, Crossword, or Cooking
 type NYTContentType string
 
 type APISource string
@@ -35,4 +49,28 @@ type Post struct {
 	Content string
 	Source  APISource
 	Type    NYTContentType
+}
+
+func GetHashtagsFromTypes() []string {
+	hashTags := []string{
+		hashtagify(Cooking),
+		hashtagify(Wordle),
+		hashtagify(Strands),
+		hashtagify(Connections),
+		hashtagify(Crossword),
+	}
+	return hashTags
+}
+
+func GetContentType(content string, groupNames []string) NYTContentType {
+	for _, name := range groupNames {
+		if strings.Contains(strings.ToLower(content), name) {
+			return NYTContentType(name)
+		}
+	}
+	return "no name"
+}
+
+func hashtagify(val NYTContentType) string {
+	return fmt.Sprintf("#%s", val)
 }

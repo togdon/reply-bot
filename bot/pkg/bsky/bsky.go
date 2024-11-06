@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -130,10 +131,10 @@ func (c *Client) fetchPostsFromFeed(feedConfig Feed) {
 
 		url, err := generateBskyUrl(feedItem.Post)
 		if err != nil {
-			fmt.Printf("error generating bsky url for uri %v", err)
+			log.Printf("error generating bsky url for uri %v", err)
 		}
 
-		fmt.Printf("Associated URL: %s\n", url)
+		log.Printf("Associated URL: %s\n", url)
 
 		post, err := createPostFromBskyPost(
 			feedItem.Post.CID,
@@ -142,11 +143,11 @@ func (c *Client) fetchPostsFromFeed(feedConfig Feed) {
 			post.NYTContentTypeFromString(feedConfig.Label),
 		)
 		if err != nil {
-			fmt.Printf("error creating post for uri %s: %v\n", url, err)
+			log.Printf("error creating post for uri %s: %v\n", url, err)
 		}
 
 		if err := c.GoogleSheetsClient.AppendRow(post); err != nil {
-			fmt.Printf("error writing to google sheet: %v\n", err)
+			log.Printf("error writing to google sheet: %v\n", err)
 		}
 
 		fmt.Printf("Post created: %v\n", post)

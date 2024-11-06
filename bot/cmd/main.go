@@ -65,7 +65,7 @@ func main() {
 		case err := <-errs:
 			fmt.Println(err)
 		case <-ctx.Done():
-			fmt.Println("Shutting down...")
+			log.Printf("Shutting down...")
 			return
 		}
 	}
