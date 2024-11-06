@@ -70,14 +70,20 @@ func NewClient(ch chan interface{}, gsheetsClient *gsheets.Client, options ...Op
 }
 
 func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan error) {
+	streamCh := make(chan mastodon.Event)
+
+	// stream from public and then iterate to the known supported tags
+	// to use the hashtag api
 	events, err := c.mastodonClient.StreamingPublic(ctx, false)
-	if err != nil {
-		errs <- err
+	sendToStream(streamCh, errs, events, err)
+	for _, tag := range post.GetHashtagsFromTypes() {
+		ch, err := c.mastodonClient.StreamingHashtag(ctx, tag, false)
+		sendToStream(streamCh, errs, ch, err)
 	}
 
 	for {
 		select {
-		case event := <-events:
+		case event := <-streamCh:
 			switch e := event.(type) {
 			case *mastodon.UpdateEvent:
 				ok, contentType := parseContent(e.Status.Content)
@@ -113,6 +119,21 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 			return
 		}
 	}
+}
+
+// sendToStream takes a channel and redirects events to a different channel
+// we're doing this because the mastodon API requires us to use different apis but it doesn't allow
+// to share a single channel
+func sendToStream(streamCh chan mastodon.Event, errs chan error, inCh chan mastodon.Event, err error) {
+	if err != nil {
+		errs <- err
+	}
+	go func() {
+		for {
+			ev := <-inCh
+			streamCh <- ev
+		}
+	}()
 }
 
 func (c *Client) Write(ctx context.Context) {
