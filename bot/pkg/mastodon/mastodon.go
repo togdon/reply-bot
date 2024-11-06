@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	gamesRegex = `(?P<wordle>Wordle\s[1-9],[0-9]{3}\s[X,1-6]\/[1-6])|(?P<connections>Connections\nPuzzle\s\#[1-6]{3}\n[🟨|🟩|🟦|🟪]*\n)|(?P<strands>Strands\s\#[1-9]{3}\n.*\n[🟡,🔵]*)|(?P<crossword>I\ssolved\sthe\s[0-9]{2}\/[0-9]{2}\/[0-9]{4}\sNew\sYork\sTimes(\sMini)?\sCrossword\sin\s)`
+	gamesRegex = `(?P<wordle>Wordle\s[1-9],[0-9]{3}\s[X,1-6]\/[1-6])|(?P<connections>Connections\nPuzzle\s\#[1-6]{3}\n[🟨|🟩|🟦|🟪]*\n)|(?P<strands>.*Strands\s\#[1-9]{3})|(?P<crossword>I\ssolved\sthe\s[0-9]{2}\/[0-9]{2}\/[0-9]{4}\sNew\sYork\sTimes(\sMini)?\sCrossword\sin\s)`
 )
 
 type Client struct {
@@ -86,7 +86,7 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 		case event := <-streamCh:
 			switch e := event.(type) {
 			case *mastodon.UpdateEvent:
-				ok, contentType := parseContent(e.Status.Content)
+				ok, contentType := getContentType(e.Status.Content)
 				if ok {
 					log.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
 					post, err := createPost(e.Status.URI, e.Status.Content, contentType)
@@ -99,7 +99,7 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 
 				}
 			case *mastodon.UpdateEditEvent:
-				ok, contentType := parseContent(e.Status.Content)
+				ok, contentType := getContentType(e.Status.Content)
 				if ok {
 					log.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
 					post, err := createPost(e.Status.URI, e.Status.Content, contentType)
@@ -173,7 +173,7 @@ func createPost(URI string, content string, postType post.NYTContentType) (*post
 }
 
 // parses the content of a post and returns true if it contains a match for NYT Urls or Games shares
-func parseContent(content string) (bool, post.NYTContentType) {
+func getContentType(content string) (bool, post.NYTContentType) {
 	var contentType post.NYTContentType
 	if content != "" {
 		// first, check for NYT URLs
@@ -185,8 +185,7 @@ func parseContent(content string) (bool, post.NYTContentType) {
 		// next, check for NYT Games shares
 		re := regexp.MustCompile(gamesRegex)
 		if re.MatchString(content) {
-			contentType = getContentType(content, re)
-			log.Printf("Found %s\n", contentType)
+			log.Printf("group name %s\n", extractContentType(content, re))
 			return true, contentType
 		}
 	}
@@ -194,19 +193,13 @@ func parseContent(content string) (bool, post.NYTContentType) {
 	return false, contentType
 }
 
-func getContentType(content string, re *regexp.Regexp) post.NYTContentType {
+func extractContentType(content string, re *regexp.Regexp) post.NYTContentType {
 	groupNames := re.SubexpNames()[1:]
 	var contentType post.NYTContentType
-	for matchNum, match := range re.FindAllStringSubmatch(content, -1) {
-		for groupIdx, group := range match {
-			name := groupNames[groupIdx]
-			if name == "" {
-				name = "*"
-			}
-			log.Printf("#%d text: '%s', group: '%s'\n", matchNum, group, name)
-			contentType = post.NYTContentType(name)
-			return contentType
-		}
+
+	for _, match := range re.FindStringSubmatch(content) {
+		contentType = post.GetContentType(match, groupNames)
+		return contentType
 	}
 
 	return contentType

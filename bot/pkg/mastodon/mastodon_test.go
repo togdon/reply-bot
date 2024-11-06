@@ -100,7 +100,6 @@ func Test_getContentType(t *testing.T) {
 	re := regexp.MustCompile(gamesRegex)
 	type args struct {
 		content string
-		re      *regexp.Regexp
 	}
 	tests := []struct {
 		name string
@@ -109,13 +108,18 @@ func Test_getContentType(t *testing.T) {
 	}{
 		{
 			name: "wordle present",
-			args: args{content: "<p>Wordle 1,236 4/6</p><p>⬜🟧⬜⬜⬜<br />⬜🟧⬜⬜⬜<br />🟧🟧🟧🟧⬜<br />🟧🟧🟧🟧🟧</p>", re: re},
+			args: args{content: "<p>Wordle 1,236 4/6</p><p>⬜🟧⬜⬜⬜<br />⬜🟧⬜⬜⬜<br />🟧🟧🟧🟧⬜<br />🟧🟧🟧🟧🟧</p>"},
 			want: post.Wordle,
+		},
+		{
+			name: "strands present",
+			args: args{content: "#Strands #248 “Strumming right along ...”🟡🔵🔵🔵🔵🔵🔵🔵"},
+			want: post.Strands,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getContentType(tt.args.content, tt.args.re); !reflect.DeepEqual(got, tt.want) {
+			if got := extractContentType(tt.args.content, re); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("getContentType() = %v, want %v", got, tt.want)
 			}
 		})

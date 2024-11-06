@@ -1,6 +1,9 @@
 package post
 
-import "fmt"
+import (
+	"strings"
+	"fmt"
+)
 
 const (
 	Connections NYTContentType = "connections"
@@ -35,6 +38,15 @@ func GetHashtagsFromTypes() []string {
 		hashtagify(Crossword),
 	}
 	return hashTags
+}
+
+func GetContentType(content string, groupNames []string) NYTContentType {
+	for _, name := range groupNames {
+	  if strings.Contains(strings.ToLower(content), name){
+		return NYTContentType(name)
+	   }
+	}
+	return "no name"
 }
 
 func hashtagify(val NYTContentType) string {
