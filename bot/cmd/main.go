@@ -8,11 +8,9 @@ import (
 	"os/signal"
 
 	"github.com/togdon/reply-bot/bot/pkg/environment"
-	"github.com/togdon/reply-bot/bot/pkg/mastodon"
 	"github.com/togdon/reply-bot/bot/pkg/gsheets"
+	"github.com/togdon/reply-bot/bot/pkg/mastodon"
 )
-
-
 
 func main() {
 	cfg, err := environment.New()
@@ -26,7 +24,8 @@ func main() {
 	defer cancel()
 
 	writeChan := make(chan interface{})
-	gsheetClient, err := gsheets.NewGSheetsClient(gsheets.CREDS_FILE, gsheets.SHEET_ID, gsheets.SHEET_NAME)
+
+	gsheetClient, err := gsheets.NewGSheetsClient([]byte(cfg.Google.Credentials), gsheets.SHEET_ID, gsheets.SHEET_NAME)
 	if err != nil {
 		log.Fatalf("Unable to create gsheets client: %v", err)
 	}

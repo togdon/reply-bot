@@ -7,6 +7,7 @@ import (
 type Config struct {
 	LogLevel string `env:"LOG_LEVEL" default:"info"`
 	Mastodon Mastodon
+	Google   Google
 }
 
 type Mastodon struct {
@@ -19,6 +20,10 @@ type Mastodon struct {
 type BlueSky struct {
 	URL            string `env:"BLUESKY_URL,required"`
 	SearchEndpoint string `env:"BLUESKY_SEARCH_ENDPOINT,required"`
+}
+
+type Google struct {
+	Credentials string `env:"GOOGLE_APPLICATION_CREDENTIALS,required"`
 }
 
 func New() (*Config, error) {
