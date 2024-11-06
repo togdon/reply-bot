@@ -12,5 +12,5 @@ RUN go build -v -o /reply-bot ./bot/cmd
 FROM debian:bookworm
 
 COPY --from=builder /reply-bot /usr/local/bin/
-COPY --from=builder /bsky-feeds.json /bsky-feeds.json
+COPY bsky-feeds.json /bsky-feeds.json
 CMD ["reply-bot"]
