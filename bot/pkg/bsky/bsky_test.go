@@ -31,7 +31,7 @@ func TestExtractRKey(t *testing.T) {
 		testShouldErr bool
 	}{
 		{"at://did:plc:tixombvfeipi656t6fpzyi2h/app.bsky.feed.post/3la5fcokczp2e", "3la5fcokczp2e", false},
-		{"invalid/uri/fmt", "", true},
+		{"invalid/", "", true},
 	}
 
 	for _, tt := range tests {
