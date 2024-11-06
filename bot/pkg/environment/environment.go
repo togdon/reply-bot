@@ -24,6 +24,7 @@ type BlueSky struct {
 
 type Google struct {
 	Credentials string `env:"GOOGLE_APPLICATION_CREDENTIALS,required"`
+	SheetName string `env:"GOOGLE_SHEET_NAME" envDefault:"test"`
 }
 
 func New() (*Config, error) {

@@ -25,7 +25,7 @@ func main() {
 
 	writeChan := make(chan interface{})
 
-	gsheetClient, err := gsheets.NewGSheetsClient([]byte(cfg.Google.Credentials), gsheets.SHEET_ID, gsheets.SHEET_NAME)
+	gsheetClient, err := gsheets.NewGSheetsClient([]byte(cfg.Google.Credentials), gsheets.SHEET_ID, cfg.Google.SheetName)
 	if err != nil {
 		log.Fatalf("Unable to create gsheets client: %v", err)
 	}
