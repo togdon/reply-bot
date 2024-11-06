@@ -88,34 +88,34 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 			case *mastodon.UpdateEvent:
 				ok, contentType := parseContent(e.Status.Content)
 				if ok {
-					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
+					log.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
 					post, err := createPost(e.Status.URI, e.Status.Content, contentType)
 					if err == nil {
 						c.writeChannel <- post
 						continue
 					}
 
-					fmt.Printf("Unable to parse post: %v", err)
+					log.Printf("Unable to parse post: %v", err)
 
 				}
 			case *mastodon.UpdateEditEvent:
 				ok, contentType := parseContent(e.Status.Content)
 				if ok {
-					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
+					log.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
 					post, err := createPost(e.Status.URI, e.Status.Content, contentType)
 					if err == nil {
 						c.writeChannel <- post
 						continue
 					}
 
-					fmt.Printf("Unable to parse post: %v", err)
+					log.Printf("Unable to parse post: %v", err)
 
 				}
 			default:
 				// How should we handle this?
 			}
 		case <-ctx.Done():
-			fmt.Println("Context cancelled, shutting down Mastodon client...")
+			log.Printf("Context cancelled, shutting down Mastodon client...")
 			return
 		}
 	}
@@ -143,7 +143,7 @@ func (c *Client) Write(ctx context.Context) {
 		case event := <-c.writeChannel:
 			switch e := event.(type) {
 			case *post.Post:
-				fmt.Printf("Post received: %v", e)
+				log.Printf("Post received: %v", e)
 				err := c.gsheetsClient.AppendRow(*e)
 				if err != nil {
 					log.Printf("unable to write post to gsheet: %v", err)
@@ -152,7 +152,7 @@ func (c *Client) Write(ctx context.Context) {
 				// How should we handle this?
 			}
 		case <-ctx.Done():
-			fmt.Println("Context cancelled, shutting down Mastodon client...")
+			log.Println("Context cancelled, shutting down Mastodon client...")
 			return
 		}
 	}
@@ -178,16 +178,15 @@ func parseContent(content string) (bool, post.NYTContentType) {
 	if content != "" {
 		// first, check for NYT URLs
 		if parseURLs(findURLs(content)) {
-			// fmt.Printf("Found NYT Cooking URL: %v\n", content)
+			log.Printf("Found NYT Cooking URL\n")
 			return true, post.Cooking
-			// return false
 		}
 
 		// next, check for NYT Games shares
 		re := regexp.MustCompile(gamesRegex)
 		if re.MatchString(content) {
-			fmt.Printf("group name %s\n", getContentType(content, re))
-			// fmt.Printf("Found NYT Games share: %v\n", content)
+			contentType = getContentType(content, re)
+			log.Printf("Found %s\n", contentType)
 			return true, contentType
 		}
 	}
@@ -204,7 +203,7 @@ func getContentType(content string, re *regexp.Regexp) post.NYTContentType {
 			if name == "" {
 				name = "*"
 			}
-			fmt.Printf("#%d text: '%s', group: '%s'\n", matchNum, group, name)
+			log.Printf("#%d text: '%s', group: '%s'\n", matchNum, group, name)
 			contentType = post.NYTContentType(name)
 			return contentType
 		}

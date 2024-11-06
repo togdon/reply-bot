@@ -13,7 +13,7 @@ const (
 	Mastodon APISource = "mastodon"
 )
 
-// Where the type can be one of Strands, Connections, Wordle, Crossword
+// Where the type can be one of Strands, Connections, Wordle, Crossword, or Cooking
 type NYTContentType string
 
 type APISource string
