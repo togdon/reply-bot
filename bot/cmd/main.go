@@ -10,7 +10,7 @@ import (
 	"github.com/togdon/reply-bot/bot/pkg/bsky"
 	"github.com/togdon/reply-bot/bot/pkg/environment"
 	"github.com/togdon/reply-bot/bot/pkg/gsheets"
-	"github.com/togdon/reply-bot/bot/pkg/mastodon"
+	// "github.com/togdon/reply-bot/bot/pkg/mastodon"
 )
 
 func main() {
@@ -25,20 +25,20 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	writeChan := make(chan interface{})
+	// writeChan := make(chan interface{})
 
 	gsheetClient, err := gsheets.NewGSheetsClient([]byte(cfg.Google.Credentials), gsheets.SHEET_ID, cfg.Google.SheetName)
 	if err != nil {
 		log.Fatalf("Unable to create gsheets client: %v", err)
 	}
-	mastodonClient, err := mastodon.NewClient(
-		writeChan,
-		gsheetClient,
-		mastodon.WithConfig(*cfg),
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// mastodonClient, err := mastodon.NewClient(
+	// 	writeChan,
+	// 	gsheetClient,
+	// 	mastodon.WithConfig(*cfg),
+	// )
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	errs := make(chan error, 1)
 
@@ -50,13 +50,13 @@ func main() {
 		cancel()
 	}()
 
-	go mastodonClient.Run(ctx, cancel, errs)
-	go mastodonClient.Write(ctx)
+	// go mastodonClient.Run(ctx, cancel, errs)
+	// go mastodonClient.Write(ctx)
 
-	bskyClient := bsky.BlueskyClient{
-		PollInterval:    10000, //TODO feeds are configured as 24 hour feeds, need to adjust feed settings + poll interval
-		FeedsConfigFile: cfg.BlueSky.FeedsConfigFile,
-	}
+	bskyClient := bsky.NewClient(
+		cfg.BlueSky.FeedsConfigFile,
+		gsheetClient,
+	)
 
 	bskyClient.Run()
 

@@ -14,14 +14,19 @@ import (
 )
 
 const (
-	bskyFeedUrl = "https://public.api.bsky.app/xrpc/app.bsky.feed.getFeed?feed=at://did:plc:ltradugkwaw6yfotr7boceaj/app.bsky.feed.generator/aaapztniwbk46"
+	bskyFeedUrl  = "https://public.api.bsky.app/xrpc/app.bsky.feed.getFeed?feed=at://did:plc:ltradugkwaw6yfotr7boceaj/app.bsky.feed.generator/aaapztniwbk46"
+	pollInterval = 10000
 )
+
+type Record struct {
+	Text string `json:"text"`
+}
 
 type BlueskyPost struct {
 	URI         string                 `json:"uri"`
 	CID         string                 `json:"cid"`
 	Author      map[string]interface{} `json:"author"`
-	Record      map[string]interface{} `json:"record"`
+	Record      Record                 `json:"record"`
 	ReplyCount  int                    `json:"replyCount"`
 	RepostCount int                    `json:"reposeCount"`
 	QuoteCount  int                    `json:"quoteCount"`
@@ -40,29 +45,37 @@ type Feed struct {
 	MachineUri string `json:"MachineUri"`
 }
 
-type BlueskyClient struct {
+type Client struct {
 	PollInterval       int
 	FeedsConfigFile    string
-	GoogleSheetsClient gsheets.Client
+	GoogleSheetsClient *gsheets.Client
 }
 
-func (bskyConf *BlueskyClient) Run() {
-
-	feeds := LoadFeedsFromConfigFile(bskyConf.FeedsConfigFile)
-
-	ticker := time.NewTicker(time.Duration(bskyConf.PollInterval) * time.Second)
-	defer ticker.Stop()
-
-	for {
-		<-ticker.C
-		fmt.Println("polling now")
-		for _, feedConf := range feeds {
-			FetchPostsFromFeed(feedConf)
-		}
+func NewClient(feedsConfigFile string, gsheetsClient *gsheets.Client) *Client {
+	return &Client{
+		PollInterval:       pollInterval,
+		FeedsConfigFile:    feedsConfigFile,
+		GoogleSheetsClient: gsheetsClient,
 	}
 }
 
-func LoadFeedsFromConfigFile(feedsConfigfileLoc string) []Feed {
+func (c *Client) Run() {
+
+	feeds := c.loadFeedsFromConfigFile(c.FeedsConfigFile)
+
+	ticker := time.NewTicker(time.Duration(c.PollInterval) * time.Second)
+	defer ticker.Stop()
+
+	for {
+		fmt.Println("polling now")
+		for _, feedConf := range feeds {
+			c.fetchPostsFromFeed(feedConf)
+		}
+		<-ticker.C
+	}
+}
+
+func (c *Client) loadFeedsFromConfigFile(feedsConfigfileLoc string) []Feed {
 
 	feedFile, err := os.Open(feedsConfigfileLoc)
 	if err != nil {
@@ -90,7 +103,7 @@ func LoadFeedsFromConfigFile(feedsConfigfileLoc string) []Feed {
 	return feeds
 }
 
-func FetchPostsFromFeed(feedConfig Feed) {
+func (c *Client) fetchPostsFromFeed(feedConfig Feed) {
 
 	resp, err := http.Get(feedConfig.MachineUri)
 
@@ -122,18 +135,21 @@ func FetchPostsFromFeed(feedConfig Feed) {
 
 		fmt.Printf("Associated URL: %s\n", url)
 
-		post, err := createPostFromBskyPost(url, feedItem.Post.Record["text"].(string), contentType)
+		post, err := createPostFromBskyPost(
+			feedItem.Post.CID,
+			url,
+			feedItem.Post.Record.Text,
+			post.NYTContentTypeFromString(feedConfig.Label),
+		)
 		if err != nil {
 			fmt.Printf("error creating post for uri %s: %v\n", url, err)
 		}
 
-		// if err := client.AppendRow(post); err != nil {
-		// 	fmt.Printf("error writing to google sheet: %v\n", err)
-		// }
+		if err := c.GoogleSheetsClient.AppendRow(post); err != nil {
+			fmt.Printf("error writing to google sheet: %v\n", err)
+		}
 
 		fmt.Printf("Post created: %v\n", post)
-
-		//TODO write to the google sheet where responses can be generated?
 	}
 
 }
@@ -163,22 +179,18 @@ func extractRKey(uri string) (string, error) {
 	return parts[len(parts)-1], nil
 }
 
-func createPostFromBskyPost(URI string, content string, postType post.NYTContentType) (post.Post, error) {
+func createPostFromBskyPost(CID, URI, content string, postType post.NYTContentType) (post.Post, error) {
 	if URI == "" || content == "" {
 		return post.Post{}, fmt.Errorf("empty content or uri. Content: %s, URI: %s", URI, content)
 	}
 
-	rKey, err := extractRKey(URI)
-	if err != nil {
-		return post.Post{}, fmt.Errorf("failed to extract rkey for post: %w", err)
-	}
-
 	post := post.Post{
-		ID:      rKey,
+		ID:      CID,
 		URI:     URI,
 		Content: content,
 		Type:    postType,
 		Source:  post.BlueSky,
 	}
+
 	return post, nil
 }
