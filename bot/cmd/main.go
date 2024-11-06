@@ -7,12 +7,14 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/togdon/reply-bot/bot/pkg/bsky"
 	"github.com/togdon/reply-bot/bot/pkg/environment"
 	"github.com/togdon/reply-bot/bot/pkg/gsheets"
 	"github.com/togdon/reply-bot/bot/pkg/mastodon"
 )
 
 func main() {
+
 	cfg, err := environment.New()
 
 	if err != nil {
@@ -55,6 +57,13 @@ func main() {
 
 	go mastodonClient.Run(ctx, cancel, errs)
 	go mastodonClient.Write(ctx)
+
+	bskyClient := bsky.NewClient(
+		cfg.BlueSky.FeedsConfigFile,
+		gsheetClient,
+	)
+
+	bskyClient.Run()
 
 	for {
 		select {

@@ -1,8 +1,8 @@
 package post
 
 import (
-	"strings"
 	"fmt"
+	"strings"
 )
 
 const (
@@ -42,9 +42,9 @@ func GetHashtagsFromTypes() []string {
 
 func GetContentType(content string, groupNames []string) NYTContentType {
 	for _, name := range groupNames {
-	  if strings.Contains(strings.ToLower(content), name){
-		return NYTContentType(name)
-	   }
+		if strings.Contains(strings.ToLower(content), name) {
+			return NYTContentType(name)
+		}
 	}
 	return "no name"
 }
