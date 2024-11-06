@@ -13,3 +13,4 @@ primary_region = 'sea'
 
 [[vm]]
   size = 'shared-cpu-1x'
+  memory = 256

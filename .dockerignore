@@ -1,6 +1,4 @@
 # flyctl launch added from .gitignore
 **/.env
-**/credentials.json
 **/reply-bot
-**/credentials.json
 fly.toml
