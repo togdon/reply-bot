@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/togdon/reply-bot/bot/pkg/gsheets"
+	"github.com/togdon/reply-bot/bot/pkg/post"
 )
 
 const (
@@ -31,7 +32,7 @@ type SearchResponse struct {
 	Feed []FeedItem `json:"feed"`
 }
 
-func FetchPosts(client *gsheets.Client) {
+func FetchPosts(contentType post.NYTContentType, client *gsheets.Client) {
 
 	resp, err := http.Get(bskyFeedUrl)
 
@@ -63,6 +64,14 @@ func FetchPosts(client *gsheets.Client) {
 
 		fmt.Printf("Associated URL: %s\n", url)
 
+		post, err := createPostFromBskyPost(url, item.Post.Record["text"].(string), contentType)
+		if err != nil {
+			fmt.Printf("error creating post for uri %s: %v\n", url, err)
+		}
+
+		if err := client.AppendRow(post); err != nil {
+			fmt.Printf("error writing to google sheet: %v\n", err)
+		}
 	}
 
 	//TODO write to the google sheet where responses can be generated?
@@ -91,4 +100,24 @@ func extractRKey(uri string) (string, error) {
 	}
 
 	return parts[len(parts)-1], nil
+}
+
+func createPostFromBskyPost(URI string, content string, postType post.NYTContentType) (post.Post, error) {
+	if URI == "" || content == "" {
+		return post.Post{}, fmt.Errorf("empty content or uri. Content: %s, URI: %s", URI, content)
+	}
+
+	rKey, err := extractRKey(URI)
+	if err != nil {
+		return post.Post{}, fmt.Errorf("failed to extract rkey for post: %w", err)
+	}
+
+	post := post.Post{
+		ID:      rKey,
+		URI:     URI,
+		Content: content,
+		Type:    postType,
+		Source:  post.BlueSky,
+	}
+	return post, nil
 }
