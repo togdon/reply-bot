@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/togdon/reply-bot/bot/pkg/gsheets"
 	"github.com/togdon/reply-bot/bot/pkg/post"
 )
 
@@ -40,9 +41,9 @@ type Feed struct {
 }
 
 type BlueskyClient struct {
-	PollInterval    int
-	FeedsConfigFile string
-	//GoogleSheetsClient gsheets.Client
+	PollInterval       int
+	FeedsConfigFile    string
+	GoogleSheetsClient gsheets.Client
 }
 
 func (bskyConf *BlueskyClient) Run() {
@@ -121,14 +122,16 @@ func FetchPostsFromFeed(feedConfig Feed) {
 
 		fmt.Printf("Associated URL: %s\n", url)
 
-		post, err := createPostFromBskyPost(url, item.Post.Record["text"].(string), contentType)
+		post, err := createPostFromBskyPost(url, feedItem.Post.Record["text"].(string), contentType)
 		if err != nil {
 			fmt.Printf("error creating post for uri %s: %v\n", url, err)
 		}
 
-		if err := client.AppendRow(post); err != nil {
-			fmt.Printf("error writing to google sheet: %v\n", err)
-		}
+		// if err := client.AppendRow(post); err != nil {
+		// 	fmt.Printf("error writing to google sheet: %v\n", err)
+		// }
+
+		fmt.Printf("Post created: %v\n", post)
 
 		//TODO write to the google sheet where responses can be generated?
 	}

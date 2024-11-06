@@ -5,10 +5,10 @@ import (
 )
 
 type Config struct {
-	// LogLevel string `env:"LOG_LEVEL" default:"info"`
-	// Mastodon Mastodon
-	// Google   Google
-	BlueSky BlueSky
+	LogLevel string `env:"LOG_LEVEL" default:"info"`
+	Mastodon Mastodon
+	Google   Google
+	BlueSky  BlueSky
 }
 
 type Mastodon struct {
