@@ -1,5 +1,7 @@
 package post
 
+import "fmt"
+
 const (
 	Connections NYTContentType = "connections"
 	Crossword   NYTContentType = "crossword"
@@ -22,4 +24,19 @@ type Post struct {
 	Content string
 	Source  APISource
 	Type    NYTContentType
+}
+
+func GetHashtagsFromTypes() []string {
+	hashTags := []string{
+		hashtagify(Cooking),
+		hashtagify(Wordle),
+		hashtagify(Strands),
+		hashtagify(Connections),
+		hashtagify(Crossword),
+	}
+	return hashTags
+}
+
+func hashtagify(val NYTContentType) string {
+	return fmt.Sprintf("#%s", val)
 }
