@@ -150,8 +150,9 @@ func parseContent(content string) bool {
 	if content != "" {
 		// first, check for NYT URLs
 		if parseURLs(findURLs(content)) {
-			// fmt.Printf("Found NYT URL: %v\n", content)
-			return true
+			fmt.Printf("Found NYT URL: %v\n", content)
+			// return true
+			return false
 		}
 
 		// next, check for NYT Games shares
