@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -59,18 +60,18 @@ func FetchPosts(contentType post.NYTContentType, client *gsheets.Client) {
 
 		url, err := generateBskyUrl(item.Post)
 		if err != nil {
-			fmt.Printf("error generating bsky url for uri %v", err)
+			log.Printf("error generating bsky url for uri %v", err)
 		}
 
-		fmt.Printf("Associated URL: %s\n", url)
+		log.Printf("Associated URL: %s\n", url)
 
 		post, err := createPostFromBskyPost(url, item.Post.Record["text"].(string), contentType)
 		if err != nil {
-			fmt.Printf("error creating post for uri %s: %v\n", url, err)
+			log.Printf("error creating post for uri %s: %v\n", url, err)
 		}
 
 		if err := client.AppendRow(post); err != nil {
-			fmt.Printf("error writing to google sheet: %v\n", err)
+			log.Printf("error writing to google sheet: %v\n", err)
 		}
 	}
 
