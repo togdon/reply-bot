@@ -1,0 +1,4 @@
+# flyctl launch added from .gitignore
+**/.env
+**/reply-bot
+fly.toml

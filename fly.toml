@@ -1,0 +1,16 @@
+# fly.toml app configuration file generated for reply-bot-union-power-620 on 2024-11-06T09:33:29-08:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'reply-bot-union-power-620'
+primary_region = 'sea'
+
+[build]
+
+[env]
+  PORT = '0'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = 256

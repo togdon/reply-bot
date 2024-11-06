@@ -12,6 +12,10 @@ import (
 	"github.com/togdon/reply-bot/bot/pkg/post"
 )
 
+const (
+	bskyFeedUrl = "https://public.api.bsky.app/xrpc/app.bsky.feed.getFeed?feed=at://did:plc:ltradugkwaw6yfotr7boceaj/app.bsky.feed.generator/aaapztniwbk46"
+)
+
 type BlueskyPost struct {
 	URI         string                 `json:"uri"`
 	CID         string                 `json:"cid"`
@@ -115,15 +119,16 @@ func FetchPostsFromFeed(feedConfig Feed) {
 			fmt.Printf("error generating bsky url for uri %v", err)
 		}
 
-		post := post.Post{
-			ID:      feedItem.Post.CID,
-			URI:     url,
-			Content: "feedItem.Post.Record", //TODO - get the body out of the Record
-			Source:  "bluesky",
-			Type:    post.NYTContentTypeFromString(feedConfig.Label), // TODO - get the actual NYTContentType
+		fmt.Printf("Associated URL: %s\n", url)
+
+		post, err := createPostFromBskyPost(url, item.Post.Record["text"].(string), contentType)
+		if err != nil {
+			fmt.Printf("error creating post for uri %s: %v\n", url, err)
 		}
 
-		fmt.Printf("Bluesky POST: %s\n", post)
+		if err := client.AppendRow(post); err != nil {
+			fmt.Printf("error writing to google sheet: %v\n", err)
+		}
 
 		//TODO write to the google sheet where responses can be generated?
 	}
@@ -153,4 +158,24 @@ func extractRKey(uri string) (string, error) {
 	}
 
 	return parts[len(parts)-1], nil
+}
+
+func createPostFromBskyPost(URI string, content string, postType post.NYTContentType) (post.Post, error) {
+	if URI == "" || content == "" {
+		return post.Post{}, fmt.Errorf("empty content or uri. Content: %s, URI: %s", URI, content)
+	}
+
+	rKey, err := extractRKey(URI)
+	if err != nil {
+		return post.Post{}, fmt.Errorf("failed to extract rkey for post: %w", err)
+	}
+
+	post := post.Post{
+		ID:      rKey,
+		URI:     URI,
+		Content: content,
+		Type:    postType,
+		Source:  post.BlueSky,
+	}
+	return post, nil
 }
