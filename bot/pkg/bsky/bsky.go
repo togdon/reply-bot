@@ -140,7 +140,7 @@ func (c *Client) fetchPostsFromFeed(feedConfig Feed) {
 			feedItem.Post.CID,
 			url,
 			feedItem.Post.Record.Text,
-			post.NYTContentTypeFromString(feedConfig.Label),
+			post.NYTContentType(strings.ToLower(feedConfig.Label)),
 		)
 		if err != nil {
 			log.Printf("error creating post for uri %s: %v\n", url, err)

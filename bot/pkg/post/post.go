@@ -16,28 +16,6 @@ const (
 	Mastodon APISource = "mastodon"
 )
 
-var types = map[string]NYTContentType{
-	"connections": Connections,
-	"crossword":   Crossword,
-	"wordle":      Wordle,
-	"strands":     Strands,
-}
-
-func NYTContentTypeFromString(ct string) NYTContentType {
-	return types[strings.ToLower(ct)]
-}
-
-var types = map[string]NYTContentType{
-	"connections": Connections,
-	"crossword":   Crossword,
-	"wordle":      Wordle,
-	"strands":     Strands,
-}
-
-func NYTContentTypeFromString(ct string) NYTContentType {
-	return types[strings.ToLower(ct)]
-}
-
 // Where the type can be one of Strands, Connections, Wordle, Crossword, or Cooking
 type NYTContentType string
 
