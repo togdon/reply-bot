@@ -5,6 +5,7 @@ const (
 	Crossword   NYTContentType = "crossword"
 	Wordle      NYTContentType = "wordle"
 	Strands     NYTContentType = "strands"
+	Cooking     NYTContentType = "cooking"
 
 	BlueSky  APISource = "bluesky"
 	Mastodon APISource = "mastodon"

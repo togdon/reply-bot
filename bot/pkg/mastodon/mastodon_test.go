@@ -1,6 +1,12 @@
 package mastodon
 
-import "testing"
+import (
+	"reflect"
+	"regexp"
+	"testing"
+
+	"github.com/togdon/reply-bot/bot/pkg/post"
+)
 
 func TestFindURLs(t *testing.T) {
 	type args struct {
@@ -85,6 +91,32 @@ func TestUnfurlURL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := unfurlURL(tt.args.s); got != tt.want {
 				t.Errorf("unfurlURL() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getContentType(t *testing.T) {
+	re := regexp.MustCompile(gamesRegex)
+	type args struct {
+		content string
+		re      *regexp.Regexp
+	}
+	tests := []struct {
+		name string
+		args args
+		want post.NYTContentType
+	}{
+		{
+			name: "wordle present",
+			args: args{content: "<p>Wordle 1,236 4/6</p><p>⬜🟧⬜⬜⬜<br />⬜🟧⬜⬜⬜<br />🟧🟧🟧🟧⬜<br />🟧🟧🟧🟧🟧</p>", re: re},
+			want: post.Wordle,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getContentType(tt.args.content, tt.args.re); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getContentType() = %v, want %v", got, tt.want)
 			}
 		})
 	}
