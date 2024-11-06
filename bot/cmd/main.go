@@ -7,12 +7,14 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/togdon/reply-bot/bot/pkg/bsky"
 	"github.com/togdon/reply-bot/bot/pkg/environment"
 	"github.com/togdon/reply-bot/bot/pkg/gsheets"
 	"github.com/togdon/reply-bot/bot/pkg/mastodon"
 )
 
 func main() {
+
 	cfg, err := environment.New()
 
 	if err != nil {
@@ -50,6 +52,13 @@ func main() {
 
 	go mastodonClient.Run(ctx, cancel, errs)
 	go mastodonClient.Write(ctx)
+
+	bskyClient := bsky.BlueskyClient{
+		PollInterval:    10000, //TODO feeds are configured as 24 hour feeds, need to adjust feed settings + poll interval
+		FeedsConfigFile: cfg.BlueSky.FeedsConfigFile,
+	}
+
+	bskyClient.Run()
 
 	for {
 		select {

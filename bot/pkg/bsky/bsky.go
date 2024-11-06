@@ -5,16 +5,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
+	"time"
 
-	"github.com/togdon/reply-bot/bot/pkg/gsheets"
+	"github.com/togdon/reply-bot/bot/pkg/post"
 )
 
-const (
-	bskyFeedUrl = "https://public.api.bsky.app/xrpc/app.bsky.feed.getFeed?feed=at://did:plc:ltradugkwaw6yfotr7boceaj/app.bsky.feed.generator/aaapztniwbk46"
-)
-
-type Post struct {
+type BlueskyPost struct {
 	URI         string                 `json:"uri"`
 	CID         string                 `json:"cid"`
 	Author      map[string]interface{} `json:"author"`
@@ -24,16 +22,72 @@ type Post struct {
 	QuoteCount  int                    `json:"quoteCount"`
 }
 type FeedItem struct {
-	Post Post `json:"post"`
+	Post BlueskyPost `json:"post"`
 }
 
-type SearchResponse struct {
+type FeedResponse struct {
 	Feed []FeedItem `json:"feed"`
 }
 
-func FetchPosts(client *gsheets.Client) {
+type Feed struct {
+	Label      string `json:"Label"`
+	UiUri      string `json:"UiUri"`
+	MachineUri string `json:"MachineUri"`
+}
 
-	resp, err := http.Get(bskyFeedUrl)
+type BlueskyClient struct {
+	PollInterval    int
+	FeedsConfigFile string
+	//GoogleSheetsClient gsheets.Client
+}
+
+func (bskyConf *BlueskyClient) Run() {
+
+	feeds := LoadFeedsFromConfigFile(bskyConf.FeedsConfigFile)
+
+	ticker := time.NewTicker(time.Duration(bskyConf.PollInterval) * time.Second)
+	defer ticker.Stop()
+
+	for {
+		<-ticker.C
+		fmt.Println("polling now")
+		for _, feedConf := range feeds {
+			FetchPostsFromFeed(feedConf)
+		}
+	}
+}
+
+func LoadFeedsFromConfigFile(feedsConfigfileLoc string) []Feed {
+
+	feedFile, err := os.Open(feedsConfigfileLoc)
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		panic(err)
+	}
+	defer feedFile.Close()
+
+	feedRaw, err := io.ReadAll(feedFile)
+	if err != nil {
+		fmt.Println("Error reading file:", err)
+		panic(err)
+	}
+
+	var feeds []Feed
+	err = json.Unmarshal(feedRaw, &feeds)
+	if err != nil {
+		fmt.Println("Error unmarshaling JSON:", err)
+		panic(err)
+	}
+
+	// Print the data
+	fmt.Println(feeds)
+
+	return feeds
+}
+
+func FetchPostsFromFeed(feedConfig Feed) {
+
+	resp, err := http.Get(feedConfig.MachineUri)
 
 	if err != nil {
 		panic(err)
@@ -47,28 +101,36 @@ func FetchPosts(client *gsheets.Client) {
 		panic(err)
 	}
 
-	var search_hits SearchResponse
+	var feedResponse FeedResponse
 
-	if err := json.Unmarshal(body, &search_hits); err != nil {
+	if err := json.Unmarshal(body, &feedResponse); err != nil {
 		panic(err)
 	}
 
-	for _, item := range search_hits.Feed {
+	for _, feedItem := range feedResponse.Feed {
 		//TODO more specific logic to filter bots / low engagement posts / low follower authors?
 
-		url, err := generateBskyUrl(item.Post)
+		url, err := generateBskyUrl(feedItem.Post)
 		if err != nil {
 			fmt.Printf("error generating bsky url for uri %v", err)
 		}
 
-		fmt.Printf("Associated URL: %s\n", url)
+		post := post.Post{
+			ID:      feedItem.Post.CID,
+			URI:     url,
+			Content: "feedItem.Post.Record", //TODO - get the body out of the Record
+			Source:  "bluesky",
+			Type:    post.NYTContentTypeFromString(feedConfig.Label), // TODO - get the actual NYTContentType
+		}
 
+		fmt.Printf("Bluesky POST: %s\n", post)
+
+		//TODO write to the google sheet where responses can be generated?
 	}
 
-	//TODO write to the google sheet where responses can be generated?
 }
 
-func generateBskyUrl(post Post) (string, error) {
+func generateBskyUrl(post BlueskyPost) (string, error) {
 	uri := post.URI
 	handle, ok := post.Author["handle"]
 	if !ok {

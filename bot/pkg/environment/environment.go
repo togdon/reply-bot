@@ -5,9 +5,10 @@ import (
 )
 
 type Config struct {
-	LogLevel string `env:"LOG_LEVEL" default:"info"`
-	Mastodon Mastodon
-	Google   Google
+	// LogLevel string `env:"LOG_LEVEL" default:"info"`
+	// Mastodon Mastodon
+	// Google   Google
+	BlueSky BlueSky
 }
 
 type Mastodon struct {
@@ -18,13 +19,12 @@ type Mastodon struct {
 }
 
 type BlueSky struct {
-	URL            string `env:"BLUESKY_URL,required"`
-	SearchEndpoint string `env:"BLUESKY_SEARCH_ENDPOINT,required"`
+	FeedsConfigFile string `env:"BLUESKY_FEEDS_CONFIG_FILE,required"`
 }
 
 type Google struct {
 	Credentials string `env:"GOOGLE_APPLICATION_CREDENTIALS,required"`
-	SheetName string `env:"GOOGLE_SHEET_NAME" envDefault:"test"`
+	SheetName   string `env:"GOOGLE_SHEET_NAME" envDefault:"test"`
 }
 
 func New() (*Config, error) {
