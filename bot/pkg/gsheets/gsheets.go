@@ -13,8 +13,6 @@ import (
 
 const (
 	SHEET_ID   = "1wD8zsIcn9vUPmL749MFAreXx8cfaYeqRfFoGuSnJ2Lk"
-	SHEET_NAME = "replies"
-	CREDS_FILE = "credentials.json"
 )
 
 // GSheetsClient encapsulates the Sheets service and sheet configuration.
