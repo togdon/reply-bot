@@ -68,11 +68,11 @@ func (c *Client) Run() {
 	defer ticker.Stop()
 
 	for {
+		<-ticker.C
 		fmt.Println("polling now")
 		for _, feedConf := range feeds {
 			c.fetchPostsFromFeed(feedConf)
 		}
-		<-ticker.C
 	}
 }
 
