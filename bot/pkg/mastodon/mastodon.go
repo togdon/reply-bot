@@ -93,6 +93,8 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 					if err == nil {
 						c.writeChannel <- post
 						continue
+					} else {
+						log.Printf("Unable to write post: %v", err)
 					}
 
 					log.Printf("Unable to parse post: %v", err)
@@ -106,6 +108,8 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 					if err == nil {
 						c.writeChannel <- post
 						continue
+					} else {
+						log.Printf("Unable to write post: %v", err)
 					}
 
 					log.Printf("Unable to parse post: %v", err)
