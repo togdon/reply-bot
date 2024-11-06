@@ -18,6 +18,10 @@ import (
 	"golang.org/x/net/html"
 )
 
+const (
+	gamesRegex = `(?P<wordle>Wordle\s[1-9],[0-9]{3}\s[X,1-6]\/[1-6])|(?P<connections>Connections\nPuzzle\s\#[1-6]{3}\n[🟨|🟩|🟦|🟪]*\n)|(?P<strands>Strands\s\#[1-9]{3}\n.*\n[🟡,🔵]*)|(?P<crossword>I\ssolved\sthe\s[0-9]{2}\/[0-9]{2}\/[0-9]{4}\sNew\sYork\sTimes(\sMini)?\sCrossword\sin\s)`
+)
+
 type Client struct {
 	mastodonClient *mastodon.Client
 	writeChannel   chan interface{}
@@ -76,9 +80,10 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 		case event := <-events:
 			switch e := event.(type) {
 			case *mastodon.UpdateEvent:
-				if parseContent(e.Status.Content) {
+				ok, contentType := parseContent(e.Status.Content)
+				if ok {
 					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
-					post, err := createPost(e.Status.URI, e.Status.Content, post.Connections)
+					post, err := createPost(e.Status.URI, e.Status.Content, contentType)
 					if err == nil {
 						c.writeChannel <- post
 						continue
@@ -88,9 +93,10 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 
 				}
 			case *mastodon.UpdateEditEvent:
-				if parseContent(e.Status.Content) {
+				ok, contentType := parseContent(e.Status.Content)
+				if ok {
 					fmt.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
-					post, err := createPost(e.Status.URI, e.Status.Content, post.Connections)
+					post, err := createPost(e.Status.URI, e.Status.Content, contentType)
 					if err == nil {
 						c.writeChannel <- post
 						continue
@@ -146,24 +152,44 @@ func createPost(URI string, content string, postType post.NYTContentType) (*post
 }
 
 // parses the content of a post and returns true if it contains a match for NYT Urls or Games shares
-func parseContent(content string) bool {
+func parseContent(content string) (bool, post.NYTContentType) {
+	var contentType post.NYTContentType
 	if content != "" {
 		// first, check for NYT URLs
 		if parseURLs(findURLs(content)) {
 			// fmt.Printf("Found NYT Cooking URL: %v\n", content)
-			return true
+			return true, post.Cooking
 			// return false
 		}
 
 		// next, check for NYT Games shares
-		contentregex := regexp.MustCompile(`(Wordle\s[1-9],[0-9]{3}\s[X,1-6]\/[1-6])|(Connections\nPuzzle\s\#[1-6]{3}\n[🟨|🟩|🟦|🟪]*\n)|(Strands\s\#[1-9]{3}\n.*\n[🟡,🔵]*)|(I\ssolved\sthe\s[0-9]{2}\/[0-9]{2}\/[0-9]{4}\sNew\sYork\sTimes(\sMini)?\sCrossword\sin\s)`)
-		if contentregex.MatchString(content) {
+		re := regexp.MustCompile(gamesRegex)
+		if re.MatchString(content) {
+			fmt.Printf("group name %s\n", getContentType(content, re))
 			// fmt.Printf("Found NYT Games share: %v\n", content)
-			return true
+			return true, contentType
 		}
 	}
 
-	return false
+	return false, contentType
+}
+
+func getContentType(content string, re *regexp.Regexp) post.NYTContentType {
+	groupNames := re.SubexpNames()[1:]
+	var contentType post.NYTContentType
+	for matchNum, match := range re.FindAllStringSubmatch(content, -1) {
+		for groupIdx, group := range match {
+			name := groupNames[groupIdx]
+			if name == "" {
+				name = "*"
+			}
+			fmt.Printf("#%d text: '%s', group: '%s'\n", matchNum, group, name)
+			contentType = post.NYTContentType(name)
+			return contentType
+		}
+	}
+
+	return contentType
 }
 
 // findURLs takes a string of event.Status.Content and returns a string of URLs
