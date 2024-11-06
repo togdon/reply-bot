@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -67,7 +66,7 @@ func main() {
 	for {
 		select {
 		case err := <-errs:
-			fmt.Println(err)
+			log.Printf("Error: %v", err)
 		case <-ctx.Done():
 			log.Printf("Shutting down...")
 			return

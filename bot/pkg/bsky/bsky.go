@@ -17,7 +17,7 @@ import (
 const (
 	bskyFeedUrl     = "https://public.api.bsky.app/xrpc/app.bsky.feed.getFeed?feed=at://did:plc:ltradugkwaw6yfotr7boceaj/app.bsky.feed.generator/aaapztniwbk46"
 	pollInterval    = 10000
-	feedsConfigFile = "bot/pkg/bsky/feeds.json"
+	feedsConfigFile = "bsky-feeds.json"
 )
 
 type Record struct {
@@ -73,7 +73,7 @@ func (c *Client) Run(errs chan error) {
 
 	for {
 		<-ticker.C
-		fmt.Println("polling now")
+		log.Printf("Polling bsky now")
 		for _, feedConf := range feeds {
 			err := c.fetchPostsFromFeed(feedConf)
 			if err != nil {
@@ -103,7 +103,7 @@ func (c *Client) loadFeedsFromConfigFile(feedsConfigfileLoc string) ([]Feed, err
 	}
 
 	// Print the data
-	fmt.Println(feeds)
+	log.Printf("loaded bsky feeds")
 
 	return feeds, nil
 }
@@ -150,7 +150,7 @@ func (c *Client) fetchPostsFromFeed(feedConfig Feed) error {
 			log.Printf("error writing bsky post to google sheet: %v\n", err)
 		}
 
-		fmt.Printf("bsky post created: %v\n", post)
+		log.Printf("bsky post created: %v\n", post)
 	}
 
 	return nil
