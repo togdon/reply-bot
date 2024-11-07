@@ -72,7 +72,7 @@ func main() {
 	for {
 		select {
 		case err := <-errs:
-			logger.Error("Processed error", err)
+			logger.Error("Processed error", "err", err)
 		case <-ctx.Done():
 			logger.Info("Shutting down...")
 			return
