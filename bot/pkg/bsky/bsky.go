@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -51,13 +52,15 @@ type Client struct {
 	PollInterval       int
 	FeedsConfigFile    string
 	GoogleSheetsClient *gsheets.Client
+	Logger             *slog.Logger
 }
 
-func NewClient(gsheetsClient *gsheets.Client) *Client {
+func NewClient(logger *slog.Logger, gsheetsClient *gsheets.Client) *Client {
 	return &Client{
 		PollInterval:       pollInterval,
 		FeedsConfigFile:    feedsConfigFile,
 		GoogleSheetsClient: gsheetsClient,
+		Logger:             logger,
 	}
 }
 
@@ -73,7 +76,7 @@ func (c *Client) Run(errs chan error) {
 
 	for {
 		<-ticker.C
-		log.Printf("Polling bsky now")
+		c.Logger.Info("Polling bsky now")
 		for _, feedConf := range feeds {
 			err := c.fetchPostsFromFeed(feedConf)
 			if err != nil {
@@ -103,7 +106,7 @@ func (c *Client) loadFeedsFromConfigFile(feedsConfigfileLoc string) ([]Feed, err
 	}
 
 	// Print the data
-	log.Printf("loaded bsky feeds")
+	c.Logger.Info("loaded bsky feeds")
 
 	return feeds, nil
 }
@@ -134,7 +137,7 @@ func (c *Client) fetchPostsFromFeed(feedConfig Feed) error {
 			log.Printf("error generating bsky url for uri %v", err)
 		}
 
-		log.Printf("Associated URL: %s\n", url)
+		c.Logger.Info("Associated URL", url)
 
 		post, err := createPostFromBskyPost(
 			feedItem.Post.CID,
@@ -143,14 +146,16 @@ func (c *Client) fetchPostsFromFeed(feedConfig Feed) error {
 			post.NYTContentType(strings.ToLower(feedConfig.Label)),
 		)
 		if err != nil {
-			log.Printf("error creating bsky post for uri %s: %v\n", url, err)
+			c.Logger.Error("error creating bsky post for uri", "url", url, "err", err)
+			continue
 		}
 
 		if err := c.GoogleSheetsClient.AppendRow(post); err != nil {
-			log.Printf("error writing bsky post to google sheet: %v\n", err)
+			c.Logger.Error("error writing bsky post to google sheet", err)
+			continue
 		}
 
-		log.Printf("bsky post created: %v\n", post)
+		c.Logger.Info("bsky post created", "post", post)
 	}
 
 	return nil

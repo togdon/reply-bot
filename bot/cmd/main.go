@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 
@@ -15,25 +16,29 @@ import (
 func main() {
 
 	cfg, err := environment.New()
+	logLevel := cfg.GetLogLevel()
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
 
 	if err != nil {
 		log.Fatalf("Error loading .env or ENV: %v", err)
 	}
-	log.Printf("Successfully read the env\n")
-	log.Printf("Writing to the %s sheet", cfg.Google.SheetName)
+
+	logger.Info("Successfully read the env", "log-level", logLevel)
+	logger.Info("Writing to sheet", "sheet", cfg.Google.SheetName)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	writeChan := make(chan interface{})
 
-	gsheetClient, err := gsheets.NewGSheetsClient([]byte(cfg.Google.Credentials), gsheets.SHEET_ID, cfg.Google.SheetName)
+	gsheetClient, err := gsheets.NewGSheetsClient(ctx, logger, []byte(cfg.Google.Credentials), gsheets.SHEET_ID, cfg.Google.SheetName)
 	if err != nil {
 		log.Fatalf("Unable to create gsheets client: %v", err)
 	} else {
-		log.Printf("Successfully created gsheets client: %v\n", gsheetClient.SheetID)
+		logger.Debug("Successfully created gsheets client", "sheetID", gsheetClient.SheetID)
 	}
 	mastodonClient, err := mastodon.NewClient(
+		logger,
 		writeChan,
 		gsheetClient,
 		mastodon.WithConfig(*cfg),
@@ -41,10 +46,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	} else {
-		log.Printf("Successfully created mastodon client\n")
+		logger.Debug("Successfully created mastodon client")
 	}
 
 	bskyClient := bsky.NewClient(
+		logger,
 		gsheetClient,
 	)
 
@@ -66,9 +72,9 @@ func main() {
 	for {
 		select {
 		case err := <-errs:
-			log.Printf("Error: %v", err)
+			logger.Error("Processed error", err)
 		case <-ctx.Done():
-			log.Printf("Shutting down...")
+			logger.Info("Shutting down...")
 			return
 		}
 	}

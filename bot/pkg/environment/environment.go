@@ -1,7 +1,11 @@
 package environment
 
 import (
+	"strings"
+
 	"github.com/caarlos0/env/v11"
+
+	"log/slog"
 )
 
 type Config struct {
@@ -30,4 +34,20 @@ func New() (*Config, error) {
 	}
 	return &cfg, nil
 
+}
+
+func (c *Config) GetLogLevel() slog.Level{
+	switch strings.ToLower(c.LogLevel) {
+	case "debug":
+		return slog.LevelDebug
+	case "info":
+		return slog.LevelInfo
+	case "error":
+		return slog.LevelError
+	case "warn":
+		return slog.LevelWarn
+	default:
+		return slog.LevelInfo
+		
+	}
 }

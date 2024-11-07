@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"regexp"
@@ -26,6 +26,7 @@ type Client struct {
 	mastodonClient *mastodon.Client
 	writeChannel   chan interface{}
 	gsheetsClient  *gsheets.Client
+	logger         *slog.Logger
 }
 
 type config struct {
@@ -47,7 +48,7 @@ func WithConfig(cfg environment.Config) Option {
 	}
 }
 
-func NewClient(ch chan interface{}, gsheetsClient *gsheets.Client, options ...Option) (*Client, error) {
+func NewClient(logger *slog.Logger, ch chan interface{}, gsheetsClient *gsheets.Client, options ...Option) (*Client, error) {
 	var cfg config
 
 	for _, opt := range options {
@@ -66,6 +67,7 @@ func NewClient(ch chan interface{}, gsheetsClient *gsheets.Client, options ...Op
 			}),
 		gsheetsClient: gsheetsClient,
 		writeChannel:  ch,
+		logger:        logger,
 	}, nil
 }
 
@@ -84,42 +86,43 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 	for {
 		select {
 		case event := <-streamCh:
+			c.logger.Debug("event received", "event", event)
 			switch e := event.(type) {
 			case *mastodon.UpdateEvent:
-				ok, contentType := getContentType(e.Status.Content)
+				ok, contentType := c.getContentType(e.Status.Content)
 				if ok {
-					log.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
+					c.logger.Info("Event content", "uri", e.Status.URI, "content", e.Status.Content)
 					post, err := createPost(e.Status.URI, e.Status.Content, contentType)
 					if err == nil {
 						c.writeChannel <- post
 						continue
 					} else {
-						log.Printf("Unable to write post: %v", err)
+						c.logger.Error("Unable to write post", "err", err)
 					}
 
-					log.Printf("Unable to parse post: %v", err)
+					c.logger.Error("Unable to parse post", "err", err)
 
 				}
 			case *mastodon.UpdateEditEvent:
-				ok, contentType := getContentType(e.Status.Content)
+				ok, contentType := c.getContentType(e.Status.Content)
 				if ok {
-					log.Printf("%v\n%v\n\n", e.Status.URI, e.Status.Content)
+					c.logger.Info("event content", "uri", e.Status.URI, "content", e.Status.Content)
 					post, err := createPost(e.Status.URI, e.Status.Content, contentType)
 					if err == nil {
 						c.writeChannel <- post
 						continue
 					} else {
-						log.Printf("Unable to write post: %v", err)
+						c.logger.Error("Unable to write post", "err", err)
 					}
 
-					log.Printf("Unable to parse post: %v", err)
+					c.logger.Error("Unable to parse post", "err", err)
 
 				}
 			default:
 				// How should we handle this?
 			}
 		case <-ctx.Done():
-			log.Printf("Context cancelled, shutting down Mastodon client...")
+			c.logger.Info("Context cancelled, shutting down Mastodon client...")
 			return
 		}
 	}
@@ -147,16 +150,16 @@ func (c *Client) Write(ctx context.Context) {
 		case event := <-c.writeChannel:
 			switch e := event.(type) {
 			case *post.Post:
-				log.Printf("Post received: %v", e)
+				c.logger.Debug("Post received", "post", e)
 				err := c.gsheetsClient.AppendRow(*e)
 				if err != nil {
-					log.Printf("unable to write post to gsheet: %v", err)
+					c.logger.Error("unable to write post to gsheet", "err", err)
 				}
 			default:
 				// How should we handle this?
 			}
 		case <-ctx.Done():
-			log.Println("Context cancelled, shutting down Mastodon client...")
+			c.logger.Info("Context cancelled, shutting down Mastodon client...")
 			return
 		}
 	}
@@ -177,19 +180,19 @@ func createPost(URI string, content string, postType post.NYTContentType) (*post
 }
 
 // parses the content of a post and returns true if it contains a match for NYT Urls or Games shares
-func getContentType(content string) (bool, post.NYTContentType) {
+func (c *Client) getContentType(content string) (bool, post.NYTContentType) {
 	var contentType post.NYTContentType
 	if content != "" {
 		// first, check for NYT URLs
 		if parseURLs(findURLs(content)) {
-			log.Printf("Found NYT Cooking URL\n")
+			c.logger.Info("Found NYT Cooking URL")
 			return true, post.Cooking
 		}
 
 		// next, check for NYT Games shares
 		re := regexp.MustCompile(gamesRegex)
 		if re.MatchString(content) {
-			log.Printf("group name %s\n", extractContentType(content, re))
+			c.logger.Info("group name", "name", extractContentType(content, re))
 			return true, contentType
 		}
 	}
