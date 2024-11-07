@@ -9,7 +9,7 @@ import (
 )
 
 type Config struct {
-	LogLevel string `env:"LOG_LEVEL" default:"info"`
+	LogLevel string `env:"LOG_LEVEL" envDefault:"info"`
 	Mastodon Mastodon
 	Google   Google
 }
