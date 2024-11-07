@@ -16,12 +16,11 @@ import (
 func main() {
 
 	cfg, err := environment.New()
-	logLevel := cfg.GetLogLevel()
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
-
 	if err != nil {
 		log.Fatalf("Error loading .env or ENV: %v", err)
 	}
+	logLevel := cfg.GetLogLevel()
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
 
 	logger.Info("Successfully read the env", "log-level", logLevel)
 	logger.Info("Writing to sheet", "sheet", cfg.Google.SheetName)
