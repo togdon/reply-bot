@@ -1,4 +1,4 @@
-# NYT Reply Bot
+# NYT Reply Bot &middot; [![Support @NYTGuildTech](https://nytimesguild.org/badge-nyt-guild-tech.png)](https://nytimesguild.org/tech/fund)
 
 A mastodon bot that looks for NYT Games social shares, Cooking links, and articles to remind folks that we're on strike.
 
