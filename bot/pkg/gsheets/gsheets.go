@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
@@ -23,8 +24,7 @@ type Client struct {
 }
 
 // NewGSheetsClient initializes a Google Sheets API client and returns a GSheetsClient instance.
-func NewGSheetsClient(creds []byte, sheetID, sheetName string) (*Client, error) {
-	ctx := context.Background()
+func NewGSheetsClient(ctx context.Context, logger *slog.Logger, creds []byte, sheetID, sheetName string) (*Client, error) {
 	service, err := sheets.NewService(ctx, option.WithCredentialsJSON(creds))
 	if err != nil {
 		return nil, fmt.Errorf("unable to create Sheets client: %v", err)
