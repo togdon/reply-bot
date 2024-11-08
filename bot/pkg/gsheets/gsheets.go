@@ -51,12 +51,12 @@ func (c *Client) AppendRow(post post.Post) error {
 	writeRange := fmt.Sprintf("%s!A:F", c.SheetName) // Columns A to F
 
 	// Append data to the specified range in the sheet
-	_, err := c.Service.Spreadsheets.Values.Append(c.SheetID, writeRange, &sheets.ValueRange{
+	resp, err := c.Service.Spreadsheets.Values.Append(c.SheetID, writeRange, &sheets.ValueRange{
 		Values: [][]interface{}{rowData},
 	}).ValueInputOption("USER_ENTERED").Do()
 
-	if err != nil {
-		return fmt.Errorf("unable to append data to sheet: %v", err)
+	if err != nil || resp.HTTPStatusCode != 200 {
+		return fmt.Errorf("unable to append data to sheet: %v, status code: %d", err, resp.HTTPStatusCode)
 	}
 
 	log.Println("Row successfully appended.")
