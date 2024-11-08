@@ -63,7 +63,13 @@ func main() {
 		cancel()
 	}()
 
-	go mastodonClient.Run(ctx, cancel, errs)
+	go func(){
+		err := mastodonClient.Run(ctx, cancel, errs)
+		if err != nil {
+			errs <- err
+		}
+	}()
+	
 	go mastodonClient.Write(ctx)
 
 	go bskyClient.Run(errs)

@@ -71,17 +71,21 @@ func NewClient(logger *slog.Logger, ch chan interface{}, gsheetsClient *gsheets.
 	}, nil
 }
 
-func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan error) {
+func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan error) error {
 	streamCh := make(chan mastodon.Event)
 
 	// stream from public and then iterate to the known supported tags
 	// to use the hashtag api
 	events, err := c.mastodonClient.StreamingPublic(ctx, false)
-	sendToStream(streamCh, errs, events, err)
-	for _, tag := range post.GetHashtagsFromTypes() {
-		ch, err := c.mastodonClient.StreamingHashtag(ctx, tag, false)
-		sendToStream(streamCh, errs, ch, err)
+	if err != nil {
+		c.logger.Error("unable to send a request to mastodon API", "err", err)
+		return err
 	}
+	sendToStream(streamCh, errs, events, err)
+	// for _, tag := range post.GetHashtagsFromTypes() {
+	// 	ch, err := c.mastodonClient.StreamingHashtag(ctx, tag, false)
+	// 	sendToStream(streamCh, errs, ch, err)
+	// }
 
 	for {
 		select {
@@ -118,12 +122,15 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 					c.logger.Error("Unable to parse post", "err", err)
 
 				}
+			case *mastodon.ErrorEvent:
+				c.logger.Error("Unable to handle event", "err", e.Error())
 			default:
 				// How should we handle this?
+				c.logger.Error("Unable to handle event", "err", err)
 			}
 		case <-ctx.Done():
 			c.logger.Info("Context cancelled, shutting down Mastodon client...")
-			return
+			return nil
 		}
 	}
 }
