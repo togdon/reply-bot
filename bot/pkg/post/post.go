@@ -1,7 +1,6 @@
 package post
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -31,11 +30,11 @@ type Post struct {
 
 func GetHashtagsFromTypes() []string {
 	hashTags := []string{
-		hashtagify(Cooking),
-		hashtagify(Wordle),
-		hashtagify(Strands),
-		hashtagify(Connections),
-		hashtagify(Crossword),
+		string(Cooking),
+		string(Wordle),
+		string(Strands),
+		string(Connections),
+		string(Crossword),
 	}
 	return hashTags
 }
@@ -47,8 +46,4 @@ func GetContentType(content string, groupNames []string) NYTContentType {
 		}
 	}
 	return "no name"
-}
-
-func hashtagify(val NYTContentType) string {
-	return fmt.Sprintf("#%s", val)
 }
