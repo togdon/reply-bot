@@ -77,9 +77,16 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 	// stream from public and then iterate to the known supported tags
 	// to use the hashtag api
 	events, err := c.mastodonClient.StreamingPublic(ctx, false)
+	if err != nil {
+		c.logger.Error("unable to create public streaming client", "err", err)
+	}
 	sendToStream(streamCh, errs, events, err)
 	for _, tag := range post.GetHashtagsFromTypes() {
+		c.logger.Info("streaming hashtag", "tag", tag)
 		ch, err := c.mastodonClient.StreamingHashtag(ctx, tag, false)
+		if err != nil {
+			c.logger.Error("unable to create hashtag streaming client", "err", err)
+		}
 		sendToStream(streamCh, errs, ch, err)
 	}
 
@@ -89,6 +96,7 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 			c.logger.Debug("event received", "event", event)
 			switch e := event.(type) {
 			case *mastodon.UpdateEvent:
+				c.logger.Debug("content form update", "content", e.Status.Content)
 				ok, contentType := c.getContentType(e.Status.Content)
 				if ok {
 					c.logger.Info("Event content", "uri", e.Status.URI, "content", e.Status.Content)
@@ -104,6 +112,7 @@ func (c *Client) Run(ctx context.Context, cancel context.CancelFunc, errs chan e
 
 				}
 			case *mastodon.UpdateEditEvent:
+				c.logger.Debug("content from update edit event", "content", e.Status.Content)
 				ok, contentType := c.getContentType(e.Status.Content)
 				if ok {
 					c.logger.Info("event content", "uri", e.Status.URI, "content", e.Status.Content)
